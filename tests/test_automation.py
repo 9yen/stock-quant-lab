@@ -19,6 +19,27 @@ from quant_lab.strategies.scanner import UNIVERSE
 
 
 class AutomationTests(unittest.TestCase):
+    def test_supervisor_registry_reaches_the_real_packaged_launcher(self):
+        from unittest.mock import patch
+
+        from quant_lab.services.automation import launch
+
+        for name in (".venv", ".venv-brokers"):
+            interpreter = self.root / name / "Scripts" / "python.exe"
+            interpreter.parent.mkdir(parents=True)
+            interpreter.touch()
+        with patch(
+            "quant_lab.services.automation.subprocess.Popen", return_value=self.start.return_value
+        ) as popen:
+            report = Supervisor(self.root, launch, self.processes).step()
+        self.assertTrue(all(row["state"] == "STARTING" for row in report["workers"]))
+        self.assertEqual(popen.call_count, 6)
+        commands = [call.args[0] for call in popen.call_args_list]
+        self.assertTrue(all(command[2:4] == ["-m", "quant_lab"] for command in commands))
+        self.assertTrue(
+            any("run-moomoo" in command and "--execute-paper" in command for command in commands)
+        )
+
     def setUp(self):
         scratch = Path(__file__).resolve().parents[1] / "state" / "test-scratch"
         scratch.mkdir(parents=True, exist_ok=True)
@@ -193,20 +214,18 @@ class AutomationTests(unittest.TestCase):
         names = [
             "web_dashboard.py",
             "alpaca_auto.py",
-            "quant_lab.brokers.moomoo.market.py",
-            "quant_lab.brokers.moomoo.observer.py",
-            "quant_lab.brokers.moomoo.options_watch.py",
-            "quant_lab.brokers.moomoo.execution.py",
+            "moomoo_market.py",
+            "moomoo_observer.py",
+            "moomoo_options_watch.py",
+            "moomoo_auto.py",
         ]
         self.processes.return_value = {n: [100, 101] for n in names}
         supervisor = Supervisor(self.root, self.start, self.processes)
         self.assertTrue(all(r["state"] == "RUNNING" for r in supervisor.step()["workers"]))
         self.start.assert_not_called()
-        self.processes.return_value.pop("quant_lab.brokers.moomoo.execution.py")
+        self.processes.return_value.pop("moomoo_auto.py")
         supervisor.step()
-        self.start.assert_called_once_with(
-            self.root, "quant_lab.brokers.moomoo.execution.py", ("--execute-paper",), True
-        )
+        self.start.assert_called_once_with(self.root, "moomoo_auto.py", ("--execute-paper",), True)
         supervisor.step()
         self.assertEqual(self.start.call_count, 1)
 

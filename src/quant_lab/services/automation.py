@@ -332,10 +332,10 @@ class Supervisor:
             wanted.append(("alpaca_auto.py", ("--execute-paper",), False))
         if config.get("moomoo_enabled"):
             wanted += [
-                ("quant_lab.brokers.moomoo.market.py", (), True),
-                ("quant_lab.brokers.moomoo.observer.py", ("--watch",), True),
-                ("quant_lab.brokers.moomoo.options_watch.py", (), True),
-                ("quant_lab.brokers.moomoo.execution.py", ("--execute-paper",), True),
+                ("moomoo_market.py", (), True),
+                ("moomoo_observer.py", ("--watch",), True),
+                ("moomoo_options_watch.py", (), True),
+                ("moomoo_auto.py", ("--execute-paper",), True),
             ]
         rows = []
         for name, args, broker in wanted:
