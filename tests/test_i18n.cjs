@@ -3,9 +3,9 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
-const root=path.resolve(__dirname,'..');
-const en=JSON.parse(fs.readFileSync(path.join(root,'web/locales/en.json'),'utf8'));
-const zh=JSON.parse(fs.readFileSync(path.join(root,'web/locales/zh-CN.json'),'utf8'));
+const root=path.resolve(__dirname,'../src/quant_lab/dashboard');
+const en=JSON.parse(fs.readFileSync(path.join(root,'assets/locales/en.json'),'utf8'));
+const zh=JSON.parse(fs.readFileSync(path.join(root,'assets/locales/zh-CN.json'),'utf8'));
 
 function runtime(){
   const text={nodeType:3,nodeValue:'账户净值',parentElement:{closest(){return null;}}};
@@ -18,7 +18,7 @@ function runtime(){
     document:{body,documentElement:{lang:'zh-CN'},getElementById:()=>select,querySelector:()=>body,
       createTreeWalker(){let used=false;return{nextNode(){if(used)return null;used=true;return text;}};}},
     fetch:async url=>({ok:true,json:async()=>url.includes('zh-CN')?zh:en})};
-  vm.runInNewContext(fs.readFileSync(path.join(root,'web/i18n.js'),'utf8'),context);
+  vm.runInNewContext(fs.readFileSync(path.join(root,'assets/i18n.js'),'utf8'),context);
   return {api:context.window.QuantI18n,context,text,select,saved};
 }
 
@@ -67,7 +67,7 @@ test('both pages offer the same language selector and all static Chinese copy is
   const keys=Object.keys(en).sort((a,b)=>b.length-a.length);
   const pattern=new RegExp(keys.map(s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|'),'g');
   for(const name of ['index.html','moomoo.html']){
-    const html=fs.readFileSync(path.join(root,'web',name),'utf8');
+    const html=fs.readFileSync(path.join(root,'assets',name),'utf8');
     assert.match(html,/id="language-select"/);assert.match(html,/\/i18n.js/);
     const texts=[...html.matchAll(/>([^<>]+)</g)].map(m=>m[1].trim());
     for(const source of texts){

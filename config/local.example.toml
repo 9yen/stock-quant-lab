@@ -1,0 +1,7 @@
+# Copy to config/local.toml inside QUANT_LAB_HOME, if overrides are needed.
+# No account IDs, API keys, execution permissions or risk limits belong here.
+schema_version = 1
+
+[web]
+host = "127.0.0.1"
+port = 8766

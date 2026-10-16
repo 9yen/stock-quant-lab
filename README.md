@@ -1,5 +1,7 @@
 # Stock Quant Lab
 
+[![Tests](https://github.com/9yen/stock-quant-lab/actions/workflows/tests.yml/badge.svg)](https://github.com/9yen/stock-quant-lab/actions/workflows/tests.yml)
+
 [English](README.md) | [简体中文](docs/README.zh-CN.md)
 
 A local, bilingual paper-trading lab for learning how market data, intraday signals, execution, reconciliation and risk controls fit together. Built with Python and a lightweight browser dashboard for Alpaca Paper and moomoo SIMULATE.
@@ -8,7 +10,7 @@ A local, bilingual paper-trading lab for learning how market data, intraday sign
 
 ## Try the interface without an account
 
-Python 3.12+ with Tk support is recommended. Windows is the supported platform for broker automation; its process checks and file locks use Windows APIs.
+Python 3.12+ is required. Windows is the supported platform for broker automation; its process checks and file locks use Windows APIs. The web backend and demo do not require Tk. The optional desktop window does.
 
 ```powershell
 git clone https://github.com/9yen/stock-quant-lab.git
@@ -20,7 +22,7 @@ python -m venv .venv
 
 Open <http://127.0.0.1:8767/>. The demo uses generated candles, temporary local files and no broker connections. Both desks have an English / 简体中文 selector. Your language choice stays in your browser and carries across desks. The demo has no real account, fills or returns.
 
-On macOS/Linux the synthetic demo may work with a Tk-enabled Python installation using `.venv/bin/python`; automated broker process management is Windows-only and has not been validated on other operating systems.
+On macOS/Linux the synthetic demo may work using `.venv/bin/python`; automated broker process management is Windows-only and has not been validated on other operating systems.
 
 ![English synthetic demo](docs/assets/demo-en.png)
 
@@ -71,7 +73,7 @@ Closed-trade returns use matched entry notional, not account equity. Partial fil
 
 ## Optional broker environments
 
-The base environment is used for Alpaca, research, UI and tests. Keep the optional gateway SDKs isolated:
+The base install supports the demo, local status and diagnostics. Add `.[alpaca,research]` for Alpaca and research, and `.[dev,alpaca,research]` for development/tests. Keep gateway SDKs isolated:
 
 ```powershell
 python -m venv .venv-brokers
@@ -89,19 +91,35 @@ node --test tests/test_i18n.cjs
 
 Tests use mocks, synthetic bars and temporary ledgers. GitHub Actions runs offline tests and JavaScript syntax checks on Windows; it does not need broker keys. Passing tests does not establish profitability.
 
-Translations are source-string catalogs in `web/locales/`, shared by both dashboards. Contributions in either language are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). Useful next steps include portable account onboarding, stronger execution replay, more complete cost models and additional languages.
+Translations are source-string catalogs in `src/quant_lab/dashboard/assets/locales/`, shared by both dashboards. Contributions in either language are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). Useful next steps include portable account onboarding, stronger execution replay, more complete cost models and additional languages.
 
-## Project map
+## Engineering layout and operations
 
-| Area | Purpose |
+The application is an installable `src/quant_lab` package, with one public CLI:
+
+```powershell
+python -m quant_lab --help
+python -m quant_lab doctor --json
+python -m quant_lab status --json
+python -m quant_lab dashboard
+# Existing authorized local paper installations only:
+python -m quant_lab supervise
+```
+
+Use `--home PATH` before the command, or `QUANT_LAB_HOME`, to select a writable runtime home. Web assets are packaged with the application; credentials, journals, logs and stop flags remain outside installed code. Optional non-secret settings live in `config/local.toml`; see `config/local.example.toml`. The dashboard only permits loopback binding.
+
+| Package | Responsibility |
 | --- | --- |
-| `quant_lab/` | Signals, Alpaca execution, chart data, reconciliation, review and optimizer |
-| `moomoo_*.py` | Gateway scanning, simulation execution, options and reporting |
-| `automation_supervisor.py`, `alpaca_auto.py` | Local worker recovery and daily Alpaca session manager |
-| `demo_dashboard.py` | Account-free synthetic demo |
-| `web/`, `web/locales/` | Shared visual style and Chinese/English UI |
-| `tests/` | Offline behavior and localization tests |
-| `docs/` | Translated operating guide |
+| `strategies/` | Signals, indicators, entry filters and exit decisions |
+| `brokers/alpaca/`, `brokers/moomoo/` | Broker-specific account reads, execution and reconciliation |
+| `analytics/` | FIFO P&L, fee models, research and daily evaluation |
+| `services/` | Worker supervision and automatic session lifecycle |
+| `runtime/` | Paths, settings validation, atomic storage and structured service logs |
+| `dashboard/` | Read-only web data/API, optional native window, demo and packaged browser assets |
+| `tests/` | Offline behavior, failure recovery and localization tests |
+| `examples/legacy/` | Historical learning exercises, separate from the application |
+
+[Architecture](docs/ARCHITECTURE.md) · [Development and packaging](docs/DEVELOPMENT.md) · [Migration from root scripts](docs/MIGRATION.md) · [Changelog](CHANGELOG.md)
 
 Older preview and backtest scripts are learning exercises and may use earlier strategies. They do not define the current intraday policy. No personal trading results or screenshots are included in this repository.
 

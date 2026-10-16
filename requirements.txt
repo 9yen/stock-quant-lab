@@ -1,7 +1,2 @@
-# Base dashboard, Alpaca paper SDK, research and tests.
-alpaca-py>=0.42,<1
-yfinance>=0.2,<2
-pandas>=2.2,<4
-python-dotenv>=1.0,<2
-tzdata>=2025.1
-matplotlib>=3.9,<4
+# Compatibility with pip -r; dependency definitions live in pyproject.toml.
+-e .[alpaca,research]

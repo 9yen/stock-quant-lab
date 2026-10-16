@@ -1,0 +1,14 @@
+include README.md LICENSE CONTRIBUTING.md SECURITY.md CHANGELOG.md
+include pyproject.toml requirements*.txt daily_optimize.py start_automatic.cmd .env.example
+recursive-include src *.py *.js *.css *.html *.json
+recursive-include tests *.py *.cjs
+recursive-include docs *.md *.png
+recursive-include config *.example.toml
+recursive-include scripts *.cmd *.md
+recursive-include examples *.py *.md
+prune state
+prune logs
+prune backups
+prune .venv
+prune .venv-brokers
+global-exclude *.py[cod] __pycache__ .DS_Store

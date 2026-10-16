@@ -5,19 +5,57 @@ on:
 permissions:
   contents: read
 jobs:
-  offline-tests:
-    runs-on: windows-latest
+  quality:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: pip
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: python -m pip install -r requirements.txt
-      - run: python -m unittest discover -s tests
+      - run: python -m pip install -e '.[dev]'
+      - run: ruff check src tests daily_optimize.py
+      - run: ruff format --check src tests daily_optimize.py
       - run: node --test tests/test_i18n.cjs
       - name: JavaScript syntax
-        shell: pwsh
-        run: Get-ChildItem web -Filter *.js | ForEach-Object { node --check $_.FullName; if ($LASTEXITCODE) { exit $LASTEXITCODE } }
+        run: find src/quant_lab/dashboard/assets -name '*.js' -print0 | xargs -0 -n1 node --check
+  offline-tests:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        python: ['3.12', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - run: python -m pip install -e '.[alpaca,research]'
+      - run: python -m unittest discover -s tests
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -e '.[dev]'
+      - run: python -m build
+      - name: Verify installed wheel outside the checkout
+        shell: bash
+        run: |
+          python -m pip uninstall -y stock-quant-lab
+          python -m pip install dist/*.whl
+          cd "$RUNNER_TEMP"
+          quant-lab --help
+          quant-lab --home "$RUNNER_TEMP/quant-lab-smoke" status --json
+          quant-lab --home "$RUNNER_TEMP/quant-lab-smoke" doctor --json
+          python -c "import sys; import quant_lab.dashboard.web; assert 'tkinter' not in sys.modules"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-distributions
+          path: dist/*

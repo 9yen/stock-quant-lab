@@ -30,3 +30,11 @@ Thumbs.db
 
 # Public screenshots must use synthetic demo data only.
 !docs/assets/*.png
+
+# Build products and local operator configuration
+dist/
+build/
+*.egg-info/
+.ruff_cache/
+.pytest_cache/
+config/local.toml

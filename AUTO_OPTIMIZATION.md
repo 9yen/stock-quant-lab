@@ -1,6 +1,6 @@
 # 自动复盘与有限参数优化
 
-已配置的本机版本中，每日任务为：Pacific/Auckland 时区，周二至周六10:30。运行本机 daily_optimize.py --auto-apply。
+已配置的本机版本中，每日任务为：Pacific/Auckland 时区，周二至周六10:30。运行本机 python -m quant_lab optimize --auto-apply（旧任务 daily_optimize.py 入口仍兼容）。
 电脑需保持唤醒，Codex需运行才能触发本地计划任务；行情归档需要OpenD与分钟扫描器在线。
 
 ## 已接入的范围

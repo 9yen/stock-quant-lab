@@ -16,6 +16,6 @@ Never upload `.env`, account IDs, private keys, real fills, logs, gateway creden
 
 ## Translations
 
-Catalogs live in `web/locales/`. `zh-CN.json` contains source strings; `en.json` has the same keys with English translations. Keep placeholders, percentages, ticker symbols and broker mode tokens intact. For another locale, add a catalog, explicitly whitelist its route in `quant_lab/web_dashboard.py`, register the locale in `web/i18n.js`, and add it to the selectors on both pages. Update catalog parity and coverage tests.
+Catalogs live in `src/quant_lab/dashboard/assets/locales/`. `zh-CN.json` contains source strings; `en.json` has the same keys with English translations. Keep placeholders, percentages, ticker symbols and broker mode tokens intact. For another locale, add a catalog, explicitly whitelist its route in `src/quant_lab/dashboard/web.py`, register the locale in `src/quant_lab/dashboard/assets/i18n.js`, and add it to the selectors on both pages. Update catalog parity and coverage tests.
 
 The shared DOM adapter supports legacy dynamic renderers without changing account data. New UI code should use `window.QuantI18n.t(source)` at display boundaries. Browser choices are saved only in local storage.

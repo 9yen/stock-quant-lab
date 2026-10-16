@@ -1,4 +1,2 @@
-# Optional isolated environment for local broker gateways.
--r requirements.txt
-moomoo-api==10.11.7108
-tigeropen==3.8.0
+# Install in the isolated .venv-brokers environment.
+-e .[moomoo,tiger]
