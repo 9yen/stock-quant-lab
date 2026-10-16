@@ -1,0 +1,32 @@
+# Local credentials and account bindings
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+tiger_openapi_config.properties
+tiger_openapi_token.properties
+# Local runtimes and generated state
+.venv/
+.venv-brokers/
+venv/
+__pycache__/
+*.py[cod]
+state/
+logs/
+backups/
+STOP_PAPER
+STOP_MOOMOO
+*.log
+*.png
+*.jpg
+# Editor / OS metadata
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Public screenshots must use synthetic demo data only.
+!docs/assets/*.png
