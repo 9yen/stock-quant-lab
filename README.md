@@ -10,6 +10,16 @@ A local, bilingual paper-trading lab for learning how market data, intraday sign
 
 ## Try the interface without an account
 
+With Docker Desktop running in Linux-container mode:
+
+```sh
+docker compose up -d --build --wait
+```
+
+Open <http://127.0.0.1:8767/>. This container runs the synthetic demo only;
+Windows broker automation remains separate. See [Docker deployment](docs/DOCKER.md)
+for logs, shutdown and execution migration limits.
+
 Python 3.12+ is required. Windows is the supported platform for broker automation; its process checks and file locks use Windows APIs. The web backend and demo do not require Tk. The optional desktop window does.
 
 ```powershell
@@ -17,7 +27,7 @@ git clone https://github.com/9yen/stock-quant-lab.git
 cd stock-quant-lab
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe demo_dashboard.py
+.\.venv\Scripts\python.exe -m quant_lab demo
 ```
 
 Open <http://127.0.0.1:8767/>. The demo uses generated candles, temporary local files and no broker connections. Both desks have an English / 简体中文 selector. Your language choice stays in your browser and carries across desks. The demo has no real account, fills or returns.

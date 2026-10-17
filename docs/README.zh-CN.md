@@ -6,6 +6,15 @@
 
 ## 安装与无密钥演示
 
+也可以先启动 Docker Desktop，再运行：
+
+```sh
+docker compose up -d --build --wait
+```
+
+打开 http://127.0.0.1:8767/。目前容器提供合成行情演示，交易执行器仍在 Windows 运行。
+部署范围、日志和后续迁移说明见 [Docker 部署](DOCKER.md)。
+
 需要 Python 3.12 或以上。自动交易进程管理目前支持 Windows；网页后端不再依赖 Tk 桌面组件。
 
 ```powershell

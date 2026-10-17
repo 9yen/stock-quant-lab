@@ -1,0 +1,12 @@
+# Allowlist: runtime credentials, ledgers, git history and backups never enter context.
+**
+!Dockerfile
+!pyproject.toml
+!README.md
+!LICENSE
+!src/
+!src/quant_lab/
+!src/quant_lab/**
+src/**/__pycache__/
+src/**/*.pyc
+src/**/*.egg-info/

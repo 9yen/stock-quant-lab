@@ -1,0 +1,28 @@
+name: stock-quant-lab
+services:
+  demo:
+    build:
+      context: .
+      target: demo
+    image: stock-quant-lab:demo
+    init: true
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8767:8767"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    volumes:
+      - demo-data:/data
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    stop_grace_period: 20s
+volumes:
+  demo-data:

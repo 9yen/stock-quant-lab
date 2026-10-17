@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Docker Compose synthetic demo with a non-root image, localhost publication,
+  health checks, restart policy and isolated logs; no broker SDKs or credentials.
+- Docker build/start smoke test in CI and bilingual deployment/migration notes.
+- Paper executors remain Windows-only; existing native automation is unchanged.
+
 ## 0.2.0
 
 - Installable `src/` package with broker, strategy, analytics, dashboard, service and runtime layers.

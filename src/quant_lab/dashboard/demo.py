@@ -3,6 +3,7 @@
 import argparse
 import json
 import math
+import os
 import shutil
 from datetime import datetime, timedelta, timezone
 from http.server import ThreadingHTTPServer
@@ -200,7 +201,9 @@ def main():
                 encoding="utf-8",
             )
         store = build_store(root)
-        server = ThreadingHTTPServer(("127.0.0.1", args.port), handler(store, args.port))
+        # Compose publishes this namespace only on the host's loopback interface.
+        host = "0.0.0.0" if os.environ.get("QUANT_LAB_CONTAINER") == "1" else "127.0.0.1"
+        server = ThreadingHTTPServer((host, args.port), handler(store, args.port))
         server.daemon_threads = True
         server.block_on_close = False
         print(f"DEMO (synthetic data): http://127.0.0.1:{server.server_port}/", flush=True)

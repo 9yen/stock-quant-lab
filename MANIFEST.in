@@ -1,5 +1,6 @@
 include README.md LICENSE CONTRIBUTING.md SECURITY.md CHANGELOG.md
 include pyproject.toml requirements*.txt daily_optimize.py start_automatic.cmd .env.example
+include Dockerfile compose.yaml .dockerignore
 recursive-include src *.py *.js *.css *.html *.json
 recursive-include tests *.py *.cjs
 recursive-include docs *.md *.png
