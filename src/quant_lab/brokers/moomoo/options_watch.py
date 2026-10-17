@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 from quant_lab.brokers.moomoo.execution import DIR, write
 from quant_lab.brokers.moomoo.market import CODES as ALL_CODES
 from quant_lab.brokers.moomoo.options import valid_contract
+from quant_lab.runtime.gateway import opend_kwargs
 
 CODES = ALL_CODES[
     :6
@@ -20,7 +21,7 @@ def main():
     while True:
         q = None
         try:
-            q = s.OpenQuoteContext(host="127.0.0.1", port=11111)
+            q = s.OpenQuoteContext(**opend_kwargs())
             now = datetime.now(NY)
             ret, stocks = q.get_market_snapshot(CODES)
             if ret != s.RET_OK:

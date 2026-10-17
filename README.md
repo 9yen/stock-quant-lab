@@ -16,11 +16,11 @@ With Docker Desktop running in Linux-container mode:
 docker compose up -d --build --wait
 ```
 
-Open <http://127.0.0.1:8767/>. This container runs the synthetic demo only;
-Windows broker automation remains separate. See [Docker deployment](docs/DOCKER.md)
+Open <http://127.0.0.1:8767/>. This container runs the synthetic demo only.
+Full PAPER execution is available through a separate, explicitly activated Compose deployment. See [Docker deployment](docs/DOCKER.md)
 for logs, shutdown and execution migration limits.
 
-Python 3.12+ is required. Windows is the supported platform for broker automation; its process checks and file locks use Windows APIs. The web backend and demo do not require Tk. The optional desktop window does.
+Python 3.12+ is required. Native automation supports Windows; the full Docker runtime uses Linux process checks and file locks. The web backend and demo do not require Tk. The optional desktop window does.
 
 ```powershell
 git clone https://github.com/9yen/stock-quant-lab.git
@@ -32,7 +32,7 @@ python -m venv .venv
 
 Open <http://127.0.0.1:8767/>. The demo uses generated candles, temporary local files and no broker connections. Both desks have an English / 简体中文 selector. Your language choice stays in your browser and carries across desks. The demo has no real account, fills or returns.
 
-On macOS/Linux the synthetic demo may work using `.venv/bin/python`; automated broker process management is Windows-only and has not been validated on other operating systems.
+Use Docker for the tested Linux execution environment. OpenD still needs a separate logged-in gateway; account permissions are not bundled in the project.
 
 ![English synthetic demo](docs/assets/demo-en.png)
 

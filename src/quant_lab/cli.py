@@ -10,6 +10,9 @@ from pathlib import Path
 from quant_lab import __version__
 
 COMMANDS = {
+    "review": ("quant_lab.services.review", "Periodic bounded local strategy review"),
+    "migrate-container": ("quant_lab.services.migration", "Copy a stopped private PAPER runtime"),
+    "container": ("quant_lab.services.container", "Activated PAPER-only container runtime"),
     "demo": ("quant_lab.dashboard.demo", "Synthetic UI; no broker connection"),
     "dashboard": ("quant_lab.dashboard.web", "Local broker-connected dashboard; reads only"),
     "desktop": ("quant_lab.dashboard.native", "Optional Tk desktop window"),
@@ -53,7 +56,7 @@ def main(argv: list[str] | None = None) -> int:
     status.add_argument("--json", action="store_true", help="Print structured status")
     doctor = sub.add_parser("doctor", help="Read-only installation and configuration diagnostics")
     doctor.add_argument("--json", action="store_true")
-    sub.add_parser("supervise", help="Windows worker supervision; respects local authorization")
+    sub.add_parser("supervise", help="Worker supervision; respects local authorization")
     alpaca = sub.add_parser(
         "run-alpaca", help="Continuous, explicitly authorized Alpaca PAPER manager"
     )
@@ -98,14 +101,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     from quant_lab.runtime.logging import service_logger
 
-    logger = service_logger(home)
+    logger = service_logger(home, args.command)
     logger.info("command_started", extra={"command": args.command})
     try:
         if args.command in {"supervise", "run-alpaca"}:
             if remainder:
                 parser.error("Unrecognized service arguments")
-            if os.name != "nt":
-                raise RuntimeError("Windows is required for broker process supervision")
             from quant_lab.services.automation import run_alpaca, run_supervisor
 
             (run_supervisor if args.command == "supervise" else run_alpaca)(home)

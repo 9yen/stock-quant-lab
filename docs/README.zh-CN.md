@@ -12,10 +12,10 @@
 docker compose up -d --build --wait
 ```
 
-打开 http://127.0.0.1:8767/。目前容器提供合成行情演示，交易执行器仍在 Windows 运行。
+打开 http://127.0.0.1:8767/。默认容器提供合成行情演示；完整模拟后台使用单独的 Compose 配置，并要求迁移授权。
 部署范围、日志和后续迁移说明见 [Docker 部署](DOCKER.md)。
 
-需要 Python 3.12 或以上。自动交易进程管理目前支持 Windows；网页后端不再依赖 Tk 桌面组件。
+需要 Python 3.12 或以上。自动交易支持 Windows 原生运行和 Linux Docker 部署；网页后端不再依赖 Tk 桌面组件。
 
 ```powershell
 git clone https://github.com/9yen/stock-quant-lab.git

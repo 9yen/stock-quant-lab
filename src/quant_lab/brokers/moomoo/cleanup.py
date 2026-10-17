@@ -8,6 +8,7 @@ from pathlib import Path
 
 from quant_lab.brokers.discovery import paper_moomoo_rows
 from quant_lab.brokers.moomoo.observer import save
+from quant_lab.runtime.gateway import opend_kwargs
 from quant_lab.runtime.paths import project_home
 
 ROOT = project_home()
@@ -27,8 +28,8 @@ def run(execute=False):
         TrdSide,
     )
 
-    t = OpenSecTradeContext(filter_trdmarket=TrdMarket.US, host="127.0.0.1", port=11111)
-    q = OpenQuoteContext(host="127.0.0.1", port=11111)
+    t = OpenSecTradeContext(filter_trdmarket=TrdMarket.US, **opend_kwargs())
+    q = OpenQuoteContext(**opend_kwargs())
     path = ROOT / "state" / "brokers" / "moomoo_legacy_cleanup.json"
     ledger = (
         json.loads(path.read_text(encoding="utf-8"))

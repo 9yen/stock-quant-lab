@@ -374,6 +374,8 @@ def main():
             (settings.web_host, settings.web_port), make_handler(store, token, settings.web_port)
         )
     except OSError:
+        if os.environ.get("QUANT_LAB_CONTAINER") == "1":
+            raise  # A random fallback port would hide a broken container mapping.
         server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(store, token, 0))
     port = server.server_address[1]
     server.RequestHandlerClass = make_handler(store, token, port)

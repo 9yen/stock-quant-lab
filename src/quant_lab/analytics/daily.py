@@ -22,6 +22,7 @@ from quant_lab.analytics.optimizer import (
     replay,
     write,
 )
+from quant_lab.runtime.gateway import opend_kwargs
 from quant_lab.runtime.paths import project_home
 
 ROOT = project_home()
@@ -32,7 +33,7 @@ def calendar_sessions(root, now):
     """Only quote/calendar reads. A connection failure does not invent a calendar."""
     from moomoo import RET_OK, OpenQuoteContext, TrdMarket
 
-    q = OpenQuoteContext(host="127.0.0.1", port=11111)
+    q = OpenQuoteContext(**opend_kwargs())
     try:
         ret, days = q.request_trading_days(
             market=TrdMarket.US,

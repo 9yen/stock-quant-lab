@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime, timedelta, timezone
 
-from quant_lab.dashboard.native import session_completed
+from quant_lab.dashboard.data import session_completed
 
 
 class SessionCompletionTests(unittest.TestCase):

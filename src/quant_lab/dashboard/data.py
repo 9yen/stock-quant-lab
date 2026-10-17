@@ -81,8 +81,16 @@ def tail_events(path, count=100):
 
 
 def process_alive(pid):
-    if os.name != "nt" or not isinstance(pid, int) or pid <= 0:
+    if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0:
         return False
+    if os.name != "nt":
+        try:
+            os.kill(pid, 0)
+            return True
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True
     import ctypes
     from ctypes import wintypes
 

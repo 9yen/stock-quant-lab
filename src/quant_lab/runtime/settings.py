@@ -34,4 +34,9 @@ def load_settings(home: Path | None = None) -> RuntimeSettings:
     port = int(raw_port)
     if not 1 <= port <= 65535:
         raise ValueError("Invalid dashboard port")
+    if (
+        os.environ.get("QUANT_LAB_CONTAINER") == "1"
+        and os.environ.get("QUANT_LAB_HOST_NETWORK") != "1"
+    ):
+        host = "0.0.0.0"
     return RuntimeSettings(home=selected, web_host=host, web_port=port)

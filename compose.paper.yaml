@@ -1,0 +1,41 @@
+# Explicit opt-in. Never combine this with native executors on the same accounts.
+name: stock-quant-lab-paper
+services:
+  lab:
+    build:
+      context: .
+      target: paper
+    image: stock-quant-lab:paper
+    init: true
+    restart: unless-stopped
+    command: ["container", "--execute-paper"]
+    ports:
+      - "127.0.0.1:8766:8766"
+    environment:
+      QUANT_LAB_OPEND_HOST: ${QUANT_LAB_OPEND_HOST:-host.docker.internal}
+      QUANT_LAB_OPEND_PORT: ${QUANT_LAB_OPEND_PORT:-11111}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - type: bind
+        source: ${QUANT_LAB_CONTAINER_HOME:?Set a separate private container runtime directory}
+        target: /data
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${QUANT_LAB_CONTAINER_HOME:?Set a separate private container runtime directory}/.env
+        target: /data/.env
+        read_only: true
+        bind:
+          create_host_path: false
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    stop_grace_period: 30s

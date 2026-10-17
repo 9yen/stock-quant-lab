@@ -20,7 +20,7 @@ class ServiceFormatter(logging.Formatter):
         )
 
 
-def service_logger(home: Path) -> logging.Logger:
+def service_logger(home: Path, command: str | None = None) -> logging.Logger:
     logger = logging.getLogger("quant_lab.service")
     logger.setLevel(logging.INFO)
     logger.propagate = False
@@ -29,8 +29,12 @@ def service_logger(home: Path) -> logging.Logger:
         handler.close()
     folder = home / "logs"
     folder.mkdir(parents=True, exist_ok=True)
+    if command is not None and not all(c.isalnum() or c in "-_" for c in command):
+        raise ValueError("Invalid lifecycle log command")
+    # Independent processes must not rotate the same lifecycle file.
+    filename = f"services.{command}.jsonl" if command else "services.jsonl"
     handler = RotatingFileHandler(
-        folder / "services.jsonl", maxBytes=1_000_000, backupCount=5, encoding="utf-8"
+        folder / filename, maxBytes=1_000_000, backupCount=5, encoding="utf-8"
     )
     handler.setFormatter(ServiceFormatter())
     logger.addHandler(handler)

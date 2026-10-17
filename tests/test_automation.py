@@ -41,6 +41,12 @@ class AutomationTests(unittest.TestCase):
         )
 
     def setUp(self):
+        from unittest.mock import patch
+
+        # Tests below describe native supervision, independent of the test runner's container.
+        environment = patch.dict("os.environ", {"QUANT_LAB_CONTAINER": "0"})
+        environment.start()
+        self.addCleanup(environment.stop)
         scratch = Path(__file__).resolve().parents[1] / "state" / "test-scratch"
         scratch.mkdir(parents=True, exist_ok=True)
         self.temp = TemporaryDirectory(dir=scratch)

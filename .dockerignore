@@ -4,6 +4,7 @@
 !pyproject.toml
 !README.md
 !LICENSE
+!requirements-docker.lock
 !src/
 !src/quant_lab/
 !src/quant_lab/**

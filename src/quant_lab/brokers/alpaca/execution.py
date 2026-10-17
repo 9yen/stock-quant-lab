@@ -611,7 +611,7 @@ def main():
         sdk._session.request = timeout_request(sdk._session.request)
         sdk._retry = 0  # No automatic POST retry after ambiguous network failures.
     require_paper(client)
-    import msvcrt
+    from quant_lab.runtime.locking import acquire, release
 
     lock = ROOT / "state" / "intraday.lock"
     lock.parent.mkdir(parents=True, exist_ok=True)
@@ -621,7 +621,7 @@ def main():
             handle.flush()
         handle.seek(0)
         try:
-            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+            acquire(handle)
         except OSError:
             print("STOP: Another intraday process is running")
             return 1
@@ -711,7 +711,7 @@ def main():
             if "readers" in locals() and readers is not None:
                 readers.close()
             handle.seek(0)
-            msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            release(handle)
 
 
 if __name__ == "__main__":

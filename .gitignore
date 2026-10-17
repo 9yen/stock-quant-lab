@@ -38,3 +38,7 @@ build/
 .ruff_cache/
 .pytest_cache/
 config/local.toml
+.runtime/
+.docker-data/
+.container-data/
+*.private.json

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Complete PAPER Docker target, isolated private runtime migration and explicit activation.
+- Linux process inventory, current-interpreter child launch and cross-platform exclusive locks.
+- Configurable OpenD endpoint and an opt-in Desktop host-network override with loopback web binding.
+- Pinned Linux dependencies, periodic bounded review and a disconnected worker recovery smoke test.
+- Publication privacy guard and Linux/Windows regression coverage; no account data in builds or CI.
+
 - Docker Compose synthetic demo with a non-root image, localhost publication,
   health checks, restart policy and isolated logs; no broker SDKs or credentials.
 - Docker build/start smoke test in CI and bilingual deployment/migration notes.

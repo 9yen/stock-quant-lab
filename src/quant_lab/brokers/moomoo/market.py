@@ -6,6 +6,7 @@ from datetime import time as walltime
 from zoneinfo import ZoneInfo
 
 from quant_lab.brokers.moomoo.observer import ROOT, number, save
+from quant_lab.runtime.gateway import opend_kwargs
 from quant_lab.strategies.scanner import compare, signal_context
 from quant_lab.strategies.universe import WATCH_UNIVERSE
 
@@ -94,7 +95,7 @@ def main():
         while not stop.is_set():
             ctx = None
             try:
-                ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
+                ctx = OpenQuoteContext(**opend_kwargs())
                 ret, _ = ctx.subscribe(codes, [SubType.K_1M], subscribe_push=False)
                 if ret != RET_OK:
                     raise RuntimeError("Minute subscription failed")

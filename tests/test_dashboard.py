@@ -1,5 +1,4 @@
 import json
-import tkinter as tk
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -7,7 +6,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
-from quant_lab.dashboard.native import Dashboard, local_status, tail_events
+from quant_lab.dashboard.data import local_status, tail_events
 
 
 class DashboardTests(unittest.TestCase):
@@ -38,6 +37,12 @@ class DashboardTests(unittest.TestCase):
         self.assertFalse(local_status(self.root, now + timedelta(seconds=120))["healthy"])
 
     def test_native_window_and_chart(self):
+        try:
+            import tkinter as tk
+
+            from quant_lab.dashboard.native import Dashboard
+        except ImportError:
+            self.skipTest("Optional Tk native window is absent from the web container")
         window = tk.Tk()
         try:
             dashboard = Dashboard(window, root=self.root, offline=True)

@@ -1,0 +1,10 @@
+# Docker Desktop host networking must be explicitly enabled first.
+# The web server MUST bind to loopback in this mode, since there is no port map.
+services:
+  lab:
+    network_mode: host
+    ports: !reset []
+    extra_hosts: !reset []
+    environment:
+      QUANT_LAB_OPEND_HOST: "127.0.0.1"
+      QUANT_LAB_HOST_NETWORK: "1"

@@ -23,6 +23,7 @@ from quant_lab.brokers.moomoo.policy import (
     STOCK_CAP,
     TARGET,
 )
+from quant_lab.runtime.gateway import opend_kwargs
 from quant_lab.runtime.paths import project_home
 
 ROOT = project_home()
@@ -627,7 +628,8 @@ class Executor:
 
 def main():
     import argparse
-    import msvcrt
+
+    from quant_lab.runtime.locking import acquire
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--execute-paper", action="store_true")
@@ -641,7 +643,7 @@ def main():
     lock.flush()
     lock.seek(0)
     try:
-        msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+        acquire(lock)
     except OSError:
         raise SystemExit("Executor already running")
     import moomoo as sdk
@@ -649,10 +651,8 @@ def main():
     while True:
         t = q = None
         try:
-            t = sdk.OpenSecTradeContext(
-                filter_trdmarket=sdk.TrdMarket.US, host="127.0.0.1", port=11111
-            )
-            q = sdk.OpenQuoteContext(host="127.0.0.1", port=11111)
+            t = sdk.OpenSecTradeContext(filter_trdmarket=sdk.TrdMarket.US, **opend_kwargs())
+            q = sdk.OpenQuoteContext(**opend_kwargs())
             # Scanner owns all 100 minute subscriptions; this executor only reads cached candidates and fresh quote snapshots.
             executor = Executor(t, q, sdk)
             while True:

@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from quant_lab.brokers.discovery import masked, paper_moomoo_rows
+from quant_lab.runtime.gateway import opend_kwargs
 from quant_lab.runtime.paths import project_home
 
 ROOT = project_home()
@@ -30,7 +31,7 @@ def number(value):
 def snapshot():
     from moomoo import RET_OK, Currency, OpenSecTradeContext, TrdEnv, TrdMarket
 
-    ctx = OpenSecTradeContext(filter_trdmarket=TrdMarket.US, host="127.0.0.1", port=11111)
+    ctx = OpenSecTradeContext(filter_trdmarket=TrdMarket.US, **opend_kwargs())
     try:
         ret, data = ctx.get_acc_list()
         if ret != RET_OK:

@@ -5,6 +5,8 @@ import json
 import socket
 from pathlib import Path
 
+from quant_lab.runtime.gateway import opend_address, opend_kwargs
+
 
 def paper_moomoo_rows(rows):
     return [
@@ -27,14 +29,14 @@ def masked(value):
 def moomoo_probe():
     with socket.socket() as sock:
         sock.settimeout(2)
-        if sock.connect_ex(("127.0.0.1", 11111)):
+        if sock.connect_ex(opend_address()):
             return dict(
                 status="needs_login",
                 detail="Install/start moomoo OpenD and log in; localhost:11111 is unavailable.",
             )
     from moomoo import RET_OK, OpenSecTradeContext, TrdMarket
 
-    ctx = OpenSecTradeContext(filter_trdmarket=TrdMarket.US, host="127.0.0.1", port=11111)
+    ctx = OpenSecTradeContext(filter_trdmarket=TrdMarket.US, **opend_kwargs())
     try:
         ret, data = ctx.get_acc_list()
         if ret != RET_OK:

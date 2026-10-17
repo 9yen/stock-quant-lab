@@ -5,6 +5,23 @@ on:
 permissions:
   contents: read
 jobs:
+  docker-paper:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --target paper -t quant-lab-paper:test .
+      - run: docker run --rm --entrypoint python quant-lab-paper:test -c "import alpaca, moomoo, pandas; print('SDK imports OK')"
+      - name: Linux offline regression tests in installed image
+        run: docker run --rm --mount "type=bind,src=$PWD/tests,dst=/data/tests,readonly" --entrypoint python quant-lab-paper:test -m unittest discover -s /data/tests
+      - run: python scripts/smoke_container.py --image quant-lab-paper:test
+      - name: Fresh image cannot start execution
+        run: |
+          set +e
+          output=$(timeout 15s docker run --rm quant-lab-paper:test 2>&1)
+          result=$?
+          set -e
+          test "$result" -eq 1
+          echo "$output" | grep 'FileNotFoundError'
   docker-demo:
     runs-on: ubuntu-latest
     steps:
@@ -36,8 +53,10 @@ jobs:
         with:
           node-version: '22'
       - run: python -m pip install -e '.[dev]'
-      - run: ruff check src tests daily_optimize.py
-      - run: ruff format --check src tests daily_optimize.py
+      - run: python scripts/check_public.py
+      - run: python -m unittest discover -s scripts -p test_publication.py
+      - run: ruff check src tests scripts daily_optimize.py
+      - run: ruff format --check src tests scripts daily_optimize.py
       - run: node --test tests/test_i18n.cjs
       - name: JavaScript syntax
         run: find src/quant_lab/dashboard/assets -name '*.js' -print0 | xargs -0 -n1 node --check

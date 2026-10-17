@@ -108,7 +108,7 @@ class RuntimeTests(unittest.TestCase):
                 with redirect_stderr(stderr):
                     self.assertEqual(main(["dashboard"]), 1)
         self.assertNotIn("SECRET-DO-NOT-LOG", stderr.getvalue())
-        log = (self.root / "logs/services.jsonl").read_text()
+        log = (self.root / "logs/services.dashboard.jsonl").read_text()
         self.assertIn("RuntimeError", log)
         self.assertNotIn("SECRET-DO-NOT-LOG", log)
 

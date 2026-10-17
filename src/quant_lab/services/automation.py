@@ -3,6 +3,7 @@
 import json
 import os
 import subprocess
+import sys
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -20,6 +21,8 @@ def write(path, data):
 
 # Stable worker IDs keep existing monitoring records readable across the migration.
 WORKER_COMMANDS = {
+    "automation_supervisor.py": ("supervise",),
+    "daily_review.py": ("review",),
     "web_dashboard.py": ("dashboard",),
     "alpaca_auto.py": ("run-alpaca",),
     "paper_intraday.py": ("alpaca-session",),
@@ -32,6 +35,8 @@ WORKER_COMMANDS = {
 
 
 def inventory(root):
+    if os.name != "nt":
+        return posix_inventory(root)
     # Only this project's Python workers are returned; never include other process arguments.
     script = r"""$ErrorActionPreference='Stop'; $r=@(Get-CimInstance Win32_Process -Filter "Name='python.exe'" | Select-Object ProcessId,CommandLine); ConvertTo-Json -InputObject $r -Compress"""
     result = subprocess.run(
@@ -60,8 +65,36 @@ def inventory(root):
     return found
 
 
+def posix_inventory(root):
+    """Inspect only exact CLI tokens and runtime home in this PID namespace."""
+    found = {}
+    for folder in Path("/proc").iterdir():
+        if not folder.name.isdecimal():
+            continue
+        try:
+            tokens = (folder / "cmdline").read_bytes().decode().rstrip("\0").split("\0")
+        except FileNotFoundError:
+            continue  # Processes may exit during the snapshot.
+        if "--home" not in tokens or "-m" not in tokens:
+            continue
+        home = tokens.index("--home") + 1
+        module = tokens.index("-m") + 1
+        if home >= len(tokens) or module >= len(tokens):
+            continue
+        if Path(tokens[home]).resolve() != root.resolve() or tokens[module] != "quant_lab":
+            continue
+        command = home + 1
+        if command < len(tokens):
+            for name, args in WORKER_COMMANDS.items():
+                if tokens[command] == args[0]:
+                    found.setdefault(name, []).append(int(folder.name))
+    return found
+
+
 def launch(root, script, args=(), broker=False):
     python = root / (".venv-brokers" if broker else ".venv") / "Scripts" / "python.exe"
+    if os.name != "nt":
+        python = Path(sys.executable)
     if not python.is_file() or script not in WORKER_COMMANDS:
         raise FileNotFoundError("Configured local runtime or worker absent")
     (root / "logs").mkdir(exist_ok=True)
@@ -81,7 +114,7 @@ def launch(root, script, args=(), broker=False):
                 cwd=root,
                 stdout=out,
                 stderr=err,
-                creationflags=subprocess.CREATE_NO_WINDOW,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
 
 
@@ -90,7 +123,7 @@ class InstanceLock:
         self.path = path
 
     def __enter__(self):
-        import msvcrt
+        from quant_lab.runtime.locking import acquire
 
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.handle = self.path.open("a+b")
@@ -100,7 +133,7 @@ class InstanceLock:
             self.handle.flush()
         self.handle.seek(0)
         try:
-            msvcrt.locking(self.handle.fileno(), msvcrt.LK_NBLCK, 1)
+            acquire(self.handle)
         except OSError:
             self.handle.close()
             raise RuntimeError("Service already running") from None
@@ -328,6 +361,8 @@ class Supervisor:
             self.root
         )  # An inventory error prevents spawning, rather than duplicates.
         wanted = [("web_dashboard.py", (), False)]
+        if os.environ.get("QUANT_LAB_CONTAINER") == "1" and config.get("review_enabled", True):
+            wanted.append(("daily_review.py", (), True))
         if config.get("alpaca_enabled"):
             wanted.append(("alpaca_auto.py", ("--execute-paper",), False))
         if config.get("moomoo_enabled"):

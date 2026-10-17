@@ -1,6 +1,7 @@
 # Development
 
-Use Python 3.12+ and Node.js 22+. Windows is required for broker process supervision.
+Use Python 3.12+ and Node.js 22+. Native development supports Windows; the complete
+Linux runtime is tested in Docker. See [deployment](DOCKER.md) before connecting accounts.
 
 ```powershell
 python -m venv .venv
@@ -18,7 +19,11 @@ node --test tests/test_i18n.cjs
 .\.venv\Scripts\python.exe -m build
 ```
 
-CI runs behavior tests on Windows/Python 3.12 and 3.13, lint/format/JS checks on Linux, and a separate wheel-install smoke test outside the checkout. It needs no broker keys. Ruff is pinned so formatting does not drift between machines.
+CI runs behavior tests on Windows/Python 3.12 and 3.13 and in the installed Linux
+paper image, plus both Docker deployment smoke checks, privacy checks, lint/format/JS
+checks and a wheel-install smoke test outside the checkout. Only the optional native
+Tk window test is skipped in the headless web image. No CI job needs broker keys.
+Ruff and Docker runtime dependencies are pinned so versions do not drift silently.
 
 Signal logic belongs in `strategies/`; SDK calls and broker-specific reconciliation belong in the relevant adapter. Orchestration belongs in `services/`, not HTTP handlers. New persistence should use `runtime.storage.write_json`; order state must stay durable. Test failure recovery and risk behavior with synthetic inputs.
 
