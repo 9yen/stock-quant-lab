@@ -631,6 +631,25 @@ class Executor:
                 )
             ).iloc[0]
             qty = min(qty, int(float(limits["max_sell_short" if short else "max_cash_buy"])))
+            if budget is not None:
+                from quant_lab.strategies.capital import assess, record
+
+                economics = assess(
+                    budget,
+                    qty,
+                    price,
+                    short,
+                    max(0, float(quote["ask_price"]) - float(quote["bid_price"])),
+                    reserve(positions, self.state["orders"]),
+                    DAILY_LOSS,
+                    pending=sum(
+                        o["kind"] == "ENTRY" and o["status"] not in TERMINAL
+                        for o in self.state["orders"]
+                    ),
+                )
+                record(ROOT, "moomoo", code, economics, now)
+                if not economics["allowed"]:
+                    continue
             if qty <= 0:
                 continue
             # Fresh holdings must match the start-of-cycle snapshot; otherwise restart reconciliation.

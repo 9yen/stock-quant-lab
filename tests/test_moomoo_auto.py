@@ -408,7 +408,7 @@ class AutoTests(unittest.TestCase):
         config = dict(
             schema_version=1,
             currency="USD",
-            initial_capital=5000,
+            initial_capital=10000,
             account_id="123",
             activated_at=(now - timedelta(minutes=1)).isoformat(),
         )
@@ -435,11 +435,36 @@ class AutoTests(unittest.TestCase):
         ):
             result = self.e.cycle(now)
         self.assertEqual(result["status"], "ENTRY_SUBMITTED")
-        self.assertEqual((result["equity"], result["baseline"]), (5000, 5000))
+        self.assertEqual((result["equity"], result["baseline"]), (10000, 10000))
         self.assertFalse(result["options_enabled"])
         options.assert_not_called()
         args = self.t.place_order.call_args.kwargs
-        self.assertLessEqual(args["qty"] * args["price"], 500)
+        self.assertLessEqual(args["qty"] * args["price"], 1000)
+
+    def test_500_budget_skips_unaffordable_stock_without_sending_order(self):
+        from quant_lab.runtime.storage import write_json
+        from quant_lab.strategies.capital import public_status
+
+        now = datetime(2026, 10, 19, 10, tzinfo=NY)
+        self.candidate_cycle(now)
+        config = dict(
+            schema_version=1,
+            currency="USD",
+            initial_capital=500,
+            account_id="123",
+            activated_at=(now - timedelta(minutes=1)).isoformat(),
+        )
+        write_json(
+            self.directory / "state/strategy_budget/config.json",
+            dict(schema_version=1, brokers={"moomoo": config}),
+        )
+        with patch("quant_lab.brokers.moomoo.execution.fresh_quote", return_value=True):
+            result = self.e.cycle(now)
+        self.assertEqual(result["status"], "WATCHING")
+        self.t.place_order.assert_not_called()
+        self.assertEqual(
+            public_status(self.directory, "moomoo")["latest"]["reason"], "WHOLE_SHARE_BUDGET"
+        )
 
     def test_budget_reconciliation_hold_still_allows_managed_stop_exit(self):
         now = datetime(2026, 10, 19, 10, tzinfo=NY)

@@ -531,6 +531,34 @@ def multi_cycle(client, data, root, auth, journal, path, readers=None):
             )
             if available <= 0:
                 continue
+            if budget is not None:
+                from quant_lab.strategies.capital import assess, record
+
+                sizing_price = float(quote.ask_price) * 1.001 * (1.05 if short else 1.02)
+                estimated_qty = int(
+                    min(
+                        float(fresh_account.equity) * min(target_limit, available),
+                        float(fresh_account.cash),
+                    )
+                    / sizing_price
+                )
+                economics = assess(
+                    fresh_budget,
+                    estimated_qty,
+                    float(quote.ask_price),
+                    short,
+                    max(0, float(quote.ask_price) - float(quote.bid_price)),
+                    gross_exposure(positions, orders, journal),
+                    day_budget,
+                    pending=sum(
+                        str(o.client_order_id).startswith(PREFIX)
+                        and any(t in str(o.client_order_id) for t in ("-B-", "-S-"))
+                        for o in orders
+                    ),
+                )
+                record(root, "alpaca", symbol, economics, fresh_now)
+                if not economics["allowed"]:
+                    continue
             request = entry_request(
                 report,
                 fresh_account,

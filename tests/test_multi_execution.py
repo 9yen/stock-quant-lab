@@ -121,7 +121,7 @@ class MultiTests(unittest.TestCase):
         config = dict(
             schema_version=1,
             currency="USD",
-            initial_capital=5000,
+            initial_capital=10000,
             account_id="paper",
             activated_at=(self.now - timedelta(minutes=1)).isoformat(),
         )
@@ -135,7 +135,7 @@ class MultiTests(unittest.TestCase):
             result = self.run_cycle([self.row("QQQ")])
             self.assertEqual(len(result["submitted"]), 1)
             request = self.client.submit_order.call_args.kwargs["order_data"]
-            self.assertLessEqual(request.qty * request.limit_price * 1.02, 500)
+            self.assertLessEqual(request.qty * request.limit_price * 1.02, 1000)
             self.client.submit_order.reset_mock()
             self.j["orders"] = {}
             self.j.update(max_position=0.4, target_position=0.1, gross_limit=1)
@@ -144,6 +144,31 @@ class MultiTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 submit_once(self.client, oversized, self.j, self.jp, self.root)
             self.client.submit_order.assert_not_called()
+
+    def test_500_budget_records_unaffordable_candidate_and_never_submits(self):
+        from quant_lab.runtime.storage import write_json
+        from quant_lab.strategies.capital import public_status
+
+        config = dict(
+            schema_version=1,
+            currency="USD",
+            initial_capital=500,
+            account_id="paper",
+            activated_at=(self.now - timedelta(minutes=1)).isoformat(),
+        )
+        write_json(
+            self.root / "state/strategy_budget/config.json",
+            dict(schema_version=1, brokers={"alpaca": config}),
+        )
+        self.auth.update(max_position=0.4, target_position=0.1, gross_limit=1)
+        self.j.update(max_position=0.4, target_position=0.1, gross_limit=1)
+        with patch("quant_lab.analytics.realized.read_fills", return_value=[]):
+            result = self.run_cycle([self.row("QQQ")])
+        self.assertEqual(result["submitted"], [])
+        self.client.submit_order.assert_not_called()
+        self.assertEqual(
+            public_status(self.root, "alpaca")["latest"]["reason"], "WHOLE_SHARE_BUDGET"
+        )
 
     def test_existing_holding_does_not_block_other_symbol(self):
         self.client.get_all_positions.return_value = [self.holding()]

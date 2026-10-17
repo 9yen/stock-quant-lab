@@ -31,6 +31,39 @@ simulated accounts, with no transfers between them.
 
 ## Activation / 启用
 
+### Capital-aware stock entries / 小资金入场适配
+
+Budget-enabled executors assess whole-share affordability and order economics
+before reserving an entry. They keep the existing 10% target allocation, 40%
+single-stock cap, gross limit, stop/target rules and daily loss locks.
+No fractional-share support or leverage is added.
+
+The guard uses estimated NZ stock fees on both desks, the observed spread and
+10 basis points of assumed round-trip slippage. Cost must be at most 35% of the
+gross 2% target, and modeled net target profit must cover the modeled 1% stop
+loss including costs. These are scenario checks, not expected returns or guaranteed
+execution prices. Final Alpaca submission repeats a fee/slippage floor check;
+the candidate check already includes the quote spread.
+
+Modeled per-trade loss is limited to 0.5% of current strategy equity. Existing gross
+exposure reserves 1% risk, plus estimated position exit fees and USD 2.10 per pending
+entry for additional costs; this remains an estimate, especially during gaps or
+large/partial fills. These reserves must fit the remaining daily loss allowance.
+Budget equity below USD 2,000 permits long entries only; this is a conservative
+local rule, not a statement about a broker's legal margin eligibility.
+
+At USD 500 the target ticket is approximately USD 50: many stocks are unaffordable
+and even affordable orders often fail the cost check. A lack of trades is an
+intentional result; do not interpret this adaptation as proof that minute trading
+is viable at that capital. At USD 10,000 the target ticket is approximately USD
+1,000, so costs are a smaller proportion, but entries still need valid signals.
+
+Both pages show guard evaluation counts and rejection reasons, including repeat
+checks; these are not counts of unique trading opportunities. Daily records persist
+under private `state/capital_guard/`. Existing exits run before entry guards.
+This change has scenario/regression validation, not evidence of profitable market
+performance or a new optimized buy/sell signal.
+
 Configure and authorize PAPER/SIMULATE accounts following [Docker deployment](DOCKER.md).
 Build the current paper image first. Stop workers; all enabled accounts must be
 flat with no pending orders or unresolved intents. Setup checks the brokers

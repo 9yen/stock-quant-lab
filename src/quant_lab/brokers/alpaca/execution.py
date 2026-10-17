@@ -215,6 +215,27 @@ def _submit_once(client, request, journal, journal_path, root):
         own_position = any(p.symbol == request.symbol and float(p.qty) != 0 for p in portfolio)
         own_order = any(o.symbol == request.symbol for o in pool_orders)
         gross = gross_exposure(portfolio, pool_orders, journal) if multi else 0
+        if budget is not None:
+            from quant_lab.strategies.capital import assess, record
+            from quant_lab.strategies.exits import daily_loss_budget
+
+            economics = assess(
+                budget,
+                float(request.qty),
+                float(request.limit_price),
+                is_short,
+                0,
+                gross,
+                daily_loss_budget(journal),
+                pending=sum(
+                    str(o.client_order_id).startswith(PREFIX)
+                    and any(t in str(o.client_order_id) for t in ("-B-", "-S-"))
+                    for o in pool_orders
+                ),
+            )
+            record(root, "alpaca", request.symbol, economics, clock.timestamp)
+            if not economics["allowed"]:
+                raise ValueError(economics["reason"])
         if (
             not isfinite(cap)
             or request.qty * request.limit_price * buffer > cap
