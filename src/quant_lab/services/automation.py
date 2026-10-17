@@ -256,7 +256,7 @@ class AlpacaService:
     def __init__(self, root, client, start=launch, processes=inventory):
         self.root, self.client, self.start, self.processes = root, client, start, processes
         self.child = None
-        self.last_start = 0
+        self.last_start = None
 
     def step(self):
         from alpaca.trading.enums import QueryOrderStatus
@@ -312,7 +312,7 @@ class AlpacaService:
         )
         if plan != "START":
             return common | dict(status=plan)
-        if time.monotonic() - self.last_start < 120:
+        if self.last_start is not None and time.monotonic() - self.last_start < 120:
             return common | dict(status="RETRY_BACKOFF")
         renew_authorization(self.root, self.client, config, auth, day)
         self.child = self.start(

@@ -166,6 +166,14 @@ class AutomationTests(unittest.TestCase):
         self.service.step()
         self.assertEqual(self.start.call_count, 1)
 
+    def test_fresh_host_does_not_delay_first_launch_but_still_backs_off_retries(self):
+        from unittest.mock import patch
+
+        with patch("quant_lab.services.automation.time.monotonic", return_value=2):
+            self.service.step()
+            self.start.assert_called_once()
+            self.assertEqual(self.service.step()["status"], "RETRY_BACKOFF")
+
     def test_stop_and_completed_day_are_not_overridden(self):
         (self.root / "STOP_PAPER").touch()
         self.assertEqual(self.service.step()["status"], "MANUAL_STOP")
