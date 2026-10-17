@@ -277,7 +277,30 @@ class Executor:
         if not math.isfinite(equity) or equity <= 0:
             raise RuntimeError("Invalid equity")
         day = self.state["days"].setdefault(str(now.date()), dict(baseline=equity, halted=False))
-        if equity <= day["baseline"] * (1 - DAILY_LOSS):
+        from quant_lab.runtime.budget import evaluate
+
+        budget = evaluate(
+            ROOT,
+            "moomoo",
+            self.aid,
+            self.state.get("fills", []),
+            [
+                dict(
+                    symbol=p["code"],
+                    qty=p["qty"],
+                    value=abs(float(p["market_val"])) * (1 if p["qty"] > 0 else -1),
+                )
+                for p in positions
+            ],
+            equity,
+            cash,
+            reserve(positions, self.state["orders"]),
+            now,
+        )
+        baseline = day["baseline"]
+        if budget is not None:
+            equity, cash, baseline = budget["equity"], budget["available_cash"], budget["baseline"]
+        if equity <= baseline * (1 - DAILY_LOSS):
             day["halted"] = True
         self.persist()
         calendar = self.checked(
@@ -290,7 +313,7 @@ class Executor:
             enabled=bool(auth.get("enabled")),
             automatic_trading=bool(auth.get("enabled")),
             account=masked(self.aid),
-            options_enabled=bool(auth.get("options_enabled")),
+            options_enabled=bool(auth.get("options_enabled")) and budget is None,
             tuning_profile=profile,
             updated=now.isoformat(),
             positions=len(positions),
@@ -299,7 +322,7 @@ class Executor:
                 for o in self.state["orders"]
             ),
             daily_halted=day["halted"],
-            baseline=day["baseline"],
+            baseline=baseline,
             equity=equity,
             risk=dict(
                 per_stock=TARGET,
@@ -455,6 +478,8 @@ class Executor:
                     metadata if is_option else None,
                 )
                 return common | dict(status="EXIT_SUBMITTED")
+        if budget is not None and not budget.get("valid"):
+            return common | dict(status="STRATEGY_BUDGET_HOLD")
         if day["halted"] or now >= closed - timedelta(minutes=30):
             return common | dict(status="ENTRY_WINDOW_CLOSED")
         if mismatched or any(o["status"] == "UNKNOWN" for o in self.state["orders"]):
@@ -536,6 +561,7 @@ class Executor:
             option = None
             if (
                 auth.get("options_enabled")
+                and budget is None
                 and len(
                     {p["code"] for p in positions if p["code"] in tracked_options}
                     | {

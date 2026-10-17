@@ -115,6 +115,36 @@ class MultiTests(unittest.TestCase):
         self.assertEqual({x["symbol"] for x in r["submitted"]}, {"QQQ", "NVDA"})
         self.assertEqual(self.client.submit_order.call_count, 2)
 
+    def test_strategy_budget_limits_real_entry_and_final_submission(self):
+        from quant_lab.runtime.storage import write_json
+
+        config = dict(
+            schema_version=1,
+            currency="USD",
+            initial_capital=5000,
+            account_id="paper",
+            activated_at=(self.now - timedelta(minutes=1)).isoformat(),
+        )
+        write_json(
+            self.root / "state/strategy_budget/config.json",
+            {"schema_version": 1, "brokers": {"alpaca": config}},
+        )
+        self.auth.update(max_position=0.4, target_position=0.1, gross_limit=1)
+        self.j.update(max_position=0.4, target_position=0.1, gross_limit=1)
+        with patch("quant_lab.analytics.realized.read_fills", return_value=[]):
+            result = self.run_cycle([self.row("QQQ")])
+            self.assertEqual(len(result["submitted"]), 1)
+            request = self.client.submit_order.call_args.kwargs["order_data"]
+            self.assertLessEqual(request.qty * request.limit_price * 1.02, 500)
+            self.client.submit_order.reset_mock()
+            self.j["orders"] = {}
+            self.j.update(max_position=0.4, target_position=0.1, gross_limit=1)
+            oversized = self.request("NVDA")
+            oversized.qty = 20
+            with self.assertRaises(ValueError):
+                submit_once(self.client, oversized, self.j, self.jp, self.root)
+            self.client.submit_order.assert_not_called()
+
     def test_existing_holding_does_not_block_other_symbol(self):
         self.client.get_all_positions.return_value = [self.holding()]
         r = self.run_cycle([self.row("QQQ"), self.row("NVDA")])

@@ -154,6 +154,8 @@ def fresh(record, now=None, seconds=90):
 
 
 def public_status(root):
+    from quant_lab.runtime.budget import public_snapshot
+
     service = read_json(root / "state" / "automation_status.json", {})
     alpaca = read_json(root / "state" / "alpaca_auto_status.json", {})
     moomoo = read_json(root / "state" / "brokers" / "moomoo_auto_status.json", {})
@@ -173,6 +175,7 @@ def public_status(root):
         fresh=fresh(service),
         status=service.get("status", "NOT_RUNNING"),
         startup=config.get("startup", "MANUAL"),
+        budgets={name: public_snapshot(root, name) for name in ("alpaca", "moomoo")},
         workers=[
             {k: r[k] for k in ("name", "state", "restarts") if k in r}
             for r in service.get("workers", [])

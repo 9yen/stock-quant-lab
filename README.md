@@ -38,6 +38,7 @@ Use Docker for the tested Linux execution environment. OpenD still needs a separ
 
 ## What you can study
 
+- [Independent paper budgets](docs/STRATEGY_BUDGET.md) without resetting broker balances.
 - One-minute opening-range breakout signals with MA20, VWAP, volume and bounded-range filters.
 - Long and short **whole-share** paper orders across a curated 100-stock universe. This is not an official Nasdaq-100 membership feed.
 - Reserved exposure for pending orders, position slots, entry limits, persistent intents and order reconciliation.

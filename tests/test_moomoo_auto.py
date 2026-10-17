@@ -396,6 +396,76 @@ class AutoTests(unittest.TestCase):
         self.assertGreater(args["qty"], 0)
         self.assertLessEqual(args["qty"] * args["price"], 10000)
 
+    def test_budget_caps_stock_entry_and_disables_option_pilot(self):
+        from quant_lab.runtime.storage import write_json
+
+        now = datetime(2026, 10, 19, 10, tzinfo=NY)
+        row = self.candidate_cycle(now)
+        a.write(
+            self.directory / "moomoo_auto_config.json",
+            dict(account_id="123", enabled=True, options_enabled=True),
+        )
+        config = dict(
+            schema_version=1,
+            currency="USD",
+            initial_capital=5000,
+            account_id="123",
+            activated_at=(now - timedelta(minutes=1)).isoformat(),
+        )
+        write_json(
+            self.directory / "state/strategy_budget/config.json",
+            {"schema_version": 1, "brokers": {"moomoo": config}},
+        )
+        self.t.place_order.return_value = (
+            0,
+            pd.DataFrame(
+                [
+                    dict(
+                        order_id="budget-stock",
+                        order_status="SUBMITTED",
+                        dealt_qty=0,
+                        dealt_avg_price=0,
+                    )
+                ]
+            ),
+        )
+        with (
+            patch("quant_lab.brokers.moomoo.execution.fresh_quote", return_value=True),
+            patch("quant_lab.brokers.moomoo.options.select_contract") as options,
+        ):
+            result = self.e.cycle(now)
+        self.assertEqual(result["status"], "ENTRY_SUBMITTED")
+        self.assertEqual((result["equity"], result["baseline"]), (5000, 5000))
+        self.assertFalse(result["options_enabled"])
+        options.assert_not_called()
+        args = self.t.place_order.call_args.kwargs
+        self.assertLessEqual(args["qty"] * args["price"], 500)
+
+    def test_budget_reconciliation_hold_still_allows_managed_stop_exit(self):
+        now = datetime(2026, 10, 19, 10, tzinfo=NY)
+        self.regular(
+            now,
+            [dict(code="US.AAPL", qty=10, position_side="LONG", cost_price=100, market_val=980)],
+        )
+        self.e.state["orders"] = [
+            dict(
+                key="entry",
+                remark="e",
+                symbol="US.AAPL",
+                side="BUY",
+                kind="ENTRY",
+                qty=10,
+                filled=10,
+                status="FILLED_ALL",
+            )
+        ]
+        with patch(
+            "quant_lab.runtime.budget.evaluate",
+            return_value=dict(valid=False, equity=5000, available_cash=0, baseline=5000),
+        ):
+            self.assertEqual(self.e.cycle(now)["status"], "EXIT_SUBMITTED")
+        self.assertEqual(self.t.place_order.call_args.kwargs["trd_side"], "SELL")
+
     def test_cumulative_average_generates_incremental_fill_price(self):
         o = dict(
             symbol="US.AAPL",

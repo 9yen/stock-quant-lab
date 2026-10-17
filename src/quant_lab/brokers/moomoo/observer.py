@@ -104,11 +104,30 @@ def snapshot():
         from quant_lab.brokers.moomoo.performance import review
 
         performance = review(journal.get("fills", []))
+        from quant_lab.runtime.budget import folder, public_snapshot, stamp
+
+        budget = public_snapshot(ROOT, "moomoo")
+        if budget is not None:
+            if budget.get("activated_at"):
+                performance = review(
+                    [
+                        row
+                        for row in journal.get("fills", [])
+                        if stamp(row["time"]) >= stamp(budget["activated_at"])
+                    ]
+                )
+            f = dict(
+                f,
+                total_assets=budget.get("equity") if budget.get("valid") else None,
+                cash=budget.get("available_cash", 0),
+            )
         options_path = ROOT / "state" / "brokers" / "quant_lab.brokers.moomoo.options_watch.json"
         options_watch = (
             json.loads(options_path.read_text(encoding="utf-8")) if options_path.exists() else {}
         )
         curve_path = ROOT / "state" / "brokers" / "moomoo_equity_curve.json"
+        if budget is not None:
+            curve_path = folder(ROOT, "moomoo") / "equity_curve.json"
         curve = json.loads(curve_path.read_text(encoding="utf-8")) if curve_path.exists() else []
         curve.append(
             dict(time=datetime.now(timezone.utc).isoformat(), equity=number(f.get("total_assets")))
@@ -135,6 +154,7 @@ def snapshot():
             updated=datetime.now(timezone.utc).isoformat(),
             options_watch=options_watch,
             performance=performance,
+            strategy_budget=budget,
             equity_curve=curve,
             auto=auto,
             market=market,

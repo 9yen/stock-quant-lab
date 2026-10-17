@@ -170,6 +170,14 @@ def _submit_once(client, request, journal, journal_path, root):
     is_short = "-S-" in cid
     is_entry = "-B-" in cid or is_short
     if is_entry:
+        from quant_lab.runtime.budget import BudgetAccount, alpaca_budget
+
+        budget = alpaca_budget(client, root, account, clock.timestamp)
+        if budget is not None:
+            if not budget.get("valid"):
+                raise ValueError("Strategy budget unavailable before submission")
+            account = BudgetAccount(account, budget)
+            journal["daily_baseline"] = budget["baseline"]
         if journal["entry_disabled"] or (root / "STOP_PAPER").exists():
             raise ValueError("Entry disabled")
         if enum_value(request.order_class) != "bracket" or enum_value(request.type) != "limit":

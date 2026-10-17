@@ -342,4 +342,36 @@ def account_snapshot(root):
             result["chart_date"] = str(selected.date)
     except Exception as exc:
         result["chart_error"] = type(exc).__name__
+    from quant_lab.runtime.budget import alpaca_budget
+
+    budget = alpaca_budget(client, root, account, now, commit=False)
+    if budget is not None:
+        result["strategy_budget"] = {k: v for k, v in budget.items() if k != "days"}
+        if budget.get("valid"):
+            result.update(
+                equity=budget["equity"],
+                cash=budget["available_cash"],
+                baseline=budget["baseline"],
+                pnl=budget["equity"] - budget["baseline"],
+                daily_pct=(budget["equity"] / budget["baseline"] - 1) * 100,
+            )
+            if result.get("realized_complete"):
+                from quant_lab.runtime.budget import folder, stamp
+
+                budget_fills = [
+                    f
+                    for f in fills
+                    if stamp(f["transaction_time"]) >= stamp(budget["activated_at"])
+                ]
+                result.update(
+                    summarize(
+                        budget_fills,
+                        universe,
+                        auth.get("session", str(now.date())),
+                        result["holdings"],
+                    )
+                )
+                result["review"] = persist_reviews(
+                    folder(root, "alpaca"), budget_fills, universe, result
+                )
     return result

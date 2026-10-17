@@ -14,6 +14,10 @@
    try{
      const response=await fetch('/api/automation',{cache:'no-store'});if(!response.ok)throw Error();
      const data=await response.json();
+     const budget=data.budgets?.[location.pathname==='/moomoo.html'?'moomoo':'alpaca'];
+     let budgetCard=document.getElementById('strategy-budget');
+     if(budget&&!budgetCard){budgetCard=document.createElement('div');budgetCard.id='strategy-budget';budgetCard.className='notice-static';document.querySelector('main').prepend(budgetCard);}
+     if(budgetCard){budgetCard.hidden=!budget;if(budget){const en=window.QuantI18n?.locale==='en',fmt=v=>Number(v??0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});budgetCard.textContent=budget.valid?(en?`Strategy capital $${fmt(budget.initial_capital)} · Equity $${fmt(budget.equity)} · Net P&L $${fmt(budget.net_pnl)} (${fmt(budget.return_pct)}%) · Estimated NZ stock fees $${fmt(budget.estimated_fees)}. Stocks only; old history retained separately.`:`策略本金 $${fmt(budget.initial_capital)} · 策略权益 $${fmt(budget.equity)} · 本轮净盈亏 $${fmt(budget.net_pnl)}（${fmt(budget.return_pct)}%）· NZ整股费用估算 $${fmt(budget.estimated_fees)}。本轮仅股票；旧历史单独保留。`):(en?'Strategy budget needs reconciliation; new entries blocked.':'策略预算需要核对，暂停新开仓。');}}
      document.getElementById('automation-service').textContent=data.status==='DEMO'?'演示模式 · 不会启动交易':data.fresh&&data.status==='RUNNING'?'自动守护在线 · 20秒检查': '自动守护未连接，请检查后台';
      show('alpaca',data.alpaca);show('moomoo',data.moomoo);
      document.getElementById('automation-startup').textContent=data.startup==='WINDOWS_LOGON'?'Windows 登录后自动启动；手动停止与当日风控锁定保留。':'电脑需在线；手动停止与当日风控锁定保留。';

@@ -52,6 +52,10 @@ class LiveData:
         last = local["last"]
         auth = read_json(self.root / "state" / "paper_authorization.json", {})
         risk = read_json(self.root / "state" / "intraday.json", {})
+        from quant_lab.runtime.budget import settings as budget_settings
+
+        if budget_settings(self.root, "alpaca") is not None:
+            risk = read_json(self.root / "state/intraday_strategy_budget.json", {})
         journal = read_json(
             self.root / "state" / f"paper_intents_{auth.get('session', '')}.json", {}
         )

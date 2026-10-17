@@ -277,9 +277,21 @@ def multi_cycle(client, data, root, auth, journal, path, readers=None):
         return dict(status="NO_SESSION", done=True)
     opened, closed = session_time(calendar[0].open), session_time(calendar[0].close)
     state_path = root / "state" / "intraday.json"
+    from quant_lab.runtime.budget import BudgetAccount, alpaca_budget
+
+    budget = alpaca_budget(client, root, account, now)
+    if budget is not None:
+        state_path = root / "state" / "intraday_strategy_budget.json"
+        account = BudgetAccount(account, budget)
     state = daily_state(state_path, now.date(), float(account.last_equity), str(account.id))
+    if budget is not None:
+        legacy_path = root / "state/intraday.json"
+        legacy = json.loads(legacy_path.read_text()) if legacy_path.exists() else {}
+        if legacy.get("day") == str(now.date()) and legacy.get("halted"):
+            state["halted"] = True
+        journal["daily_baseline"] = state["baseline"]
     equity = float(account.equity)
-    if not isfinite(equity) or equity <= 0:
+    if not isfinite(equity) or equity <= 0 and budget is None:
         raise ValueError("Invalid equity")
     if equity <= state["baseline"] * (1 - day_budget):
         state.update(halted=True, halt_reason=f"DAILY_BUDGET_{day_budget:.2%}")
@@ -426,6 +438,8 @@ def multi_cycle(client, data, root, auth, journal, path, readers=None):
                 )
             )
             exiting.add(p.symbol)
+    if budget is not None and not budget.get("valid"):
+        return dict(status="STRATEGY_BUDGET_HOLD", actions=actions)
     if journal["entry_disabled"]:
         return dict(status="ENTRY_DISABLED", actions=actions)
     if now >= closed - timedelta(minutes=30):
@@ -482,6 +496,11 @@ def multi_cycle(client, data, root, auth, journal, path, readers=None):
             fresh_clock = client.get_clock()
             fresh_now = fresh_clock.timestamp.astimezone(NY)
             fresh_account = client.get_account()
+            if budget is not None:
+                fresh_budget = alpaca_budget(client, root, fresh_account, fresh_now)
+                if not fresh_budget.get("valid"):
+                    break
+                fresh_account = BudgetAccount(fresh_account, fresh_budget)
             if not fresh_clock.is_open or not opened <= fresh_now < closed - timedelta(minutes=30):
                 break
             if (

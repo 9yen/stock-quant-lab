@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Independent stock-only paper budgets, fee-adjusted FIFO equity, reserved pending
+  exposure, durable daily baselines, flat-account activation and dashboard reporting.
 - Complete PAPER Docker target, isolated private runtime migration and explicit activation.
 - Linux process inventory, current-interpreter child launch and cross-platform exclusive locks.
 - Configurable OpenD endpoint and an opt-in Desktop host-network override with loopback web binding.

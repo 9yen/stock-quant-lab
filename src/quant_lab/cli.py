@@ -10,6 +10,10 @@ from pathlib import Path
 from quant_lab import __version__
 
 COMMANDS = {
+    "activate-budget": (
+        "quant_lab.services.budget_setup",
+        "Activate flat-account strategy capital",
+    ),
     "review": ("quant_lab.services.review", "Periodic bounded local strategy review"),
     "migrate-container": ("quant_lab.services.migration", "Copy a stopped private PAPER runtime"),
     "container": ("quant_lab.services.container", "Activated PAPER-only container runtime"),
