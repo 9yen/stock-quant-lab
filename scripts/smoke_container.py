@@ -27,6 +27,9 @@ def main():
         root.chmod(0o777)
         (root / "state").mkdir()
         (root / "state").chmod(0o777)
+        # The host test runner must also be able to clean up files made by UID 10001.
+        (root / "logs").mkdir()
+        (root / "logs").chmod(0o777)
         (root / ".env").touch()
         config = {"alpaca_enabled": False, "moomoo_enabled": False, "review_enabled": False}
         (root / "state/automation_config.json").write_text(json.dumps(config))

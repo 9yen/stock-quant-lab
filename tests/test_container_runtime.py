@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from quant_lab.runtime.gateway import opend_address
 from quant_lab.runtime.locking import acquire, release
+from quant_lab.runtime.ownership import require_execution_owner
 from quant_lab.runtime.settings import load_settings
 from quant_lab.services.container import require_activation
 from quant_lab.services.migration import prepare
@@ -29,6 +30,13 @@ class ContainerRuntimeTests(unittest.TestCase):
             self.assertEqual((target / "state/ledger.json").read_bytes(), ledger)
             self.assertTrue((target / "STOP_PAPER").is_file())
             require_activation(target)
+            self.assertEqual(
+                json.loads((target / "state/automation_config.json").read_text())["startup"],
+                "DOCKER_COMPOSE",
+            )
+            with patch.dict(os.environ, {"QUANT_LAB_CONTAINER": "0"}):
+                with self.assertRaises(RuntimeError):
+                    require_execution_owner(source)
             self.assertEqual(
                 (source / "state/container_authorization.json").read_text(), "untrusted old marker"
             )
@@ -71,6 +79,24 @@ class ContainerRuntimeTests(unittest.TestCase):
             with patch.dict(os.environ, {"QUANT_LAB_OPEND_PORT": port}):
                 with self.assertRaises(ValueError):
                     opend_address()
+
+    def test_migrated_native_cli_cannot_restart_execution(self):
+        from contextlib import redirect_stderr
+        from io import StringIO
+
+        from quant_lab.cli import main
+
+        with TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "state").mkdir()
+            (root / "state/container_migrated.json").write_text("{}")
+            with patch.dict(os.environ, {"QUANT_LAB_CONTAINER": "0"}):
+                with patch("quant_lab.cli.invoke") as invoke:
+                    with redirect_stderr(StringIO()):
+                        self.assertEqual(
+                            main(["--home", str(root), "run-moomoo", "--execute-paper"]), 1
+                        )
+                    invoke.assert_not_called()
 
     def test_container_activation_never_infers_permission_from_broker_config(self):
         with TemporaryDirectory() as folder:

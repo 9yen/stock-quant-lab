@@ -89,6 +89,11 @@ port without updating the application's port setting: Host/Origin validation is 
 An empty runtime or missing migration marker blocks the default execution entrypoint.
 Existing account authorization is still required for each enabled broker.
 
+On Windows, `start_docker.cmd` uses the default private runtime directory and the host
+network override. After migration, `start_automatic.cmd` routes to the same Docker
+launcher. A marker in the old native state blocks its execution commands, preventing
+an accidental restart against stale ledgers. Do not delete that marker to bypass a hold.
+
 `QUANT_LAB_OPEND_HOST` and `QUANT_LAB_OPEND_PORT` configure bridge-mode gateway access.
 Native Windows defaults remain 127.0.0.1:11111. OpenD login remains an external dependency;
 this project does not package an account login or trading-unlock password in an image.
@@ -132,6 +137,8 @@ possible. Code rollback does not roll back broker fills. Never restore an old le
 over newer fills. To return to native execution, stop the container first, reconcile
 both accounts and transfer the newest private state back before enabling native workers.
 The migration tool intentionally refuses overwriting a destination.
+Only after stopping containers, reconciling accounts and restoring the newest state
+may an operator remove the old native migration marker to perform an intentional rollback.
 
 ## Build and privacy / 构建与隐私
 

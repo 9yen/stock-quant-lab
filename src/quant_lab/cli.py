@@ -104,6 +104,16 @@ def main(argv: list[str] | None = None) -> int:
     logger = service_logger(home, args.command)
     logger.info("command_started", extra={"command": args.command})
     try:
+        if args.command in {
+            "supervise",
+            "run-alpaca",
+            "alpaca-session",
+            "run-moomoo",
+            "cleanup-moomoo",
+        }:
+            from quant_lab.runtime.ownership import require_execution_owner
+
+            require_execution_owner(home)
         if args.command in {"supervise", "run-alpaca"}:
             if remainder:
                 parser.error("Unrecognized service arguments")

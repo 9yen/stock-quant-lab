@@ -1,6 +1,7 @@
 """Copy a stopped private runtime without publishing credentials or resetting risk."""
 
 import argparse
+import json
 import shutil
 from pathlib import Path
 
@@ -20,6 +21,8 @@ def prepare(source, destination):
         raise ValueError("Private runtime must not be inside a Git repository")
     if not (source / "state/automation_config.json").is_file():
         raise ValueError("Existing local automation configuration required")
+    if (source / "state/container_migrated.json").exists():
+        raise RuntimeError("Source was migrated; use the latest container runtime instead")
     if inventory(source):
         raise RuntimeError("Native workers must be stopped before migration")
     names = (".env", "state", "logs", "config", "STOP_PAPER", "STOP_MOOMOO")
@@ -41,6 +44,12 @@ def prepare(source, destination):
     marker.unlink(missing_ok=True)
     if inventory(source):
         raise RuntimeError("Native workers restarted; copied runtime remains unactivated")
+    config_path = destination / "state/automation_config.json"
+    config = json.loads(config_path.read_text(encoding="utf-8-sig"))
+    write_json(config_path, config | {"startup": "DOCKER_COMPOSE"})
+    write_json(
+        source / "state/container_migrated.json", {"owner": "DOCKER_COMPOSE", "mode": "PAPER_ONLY"}
+    )
     write_json(marker, {"schema_version": 1, "mode": "PAPER_ONLY", "native_workers_stopped": True})
 
 
