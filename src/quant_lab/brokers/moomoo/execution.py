@@ -367,6 +367,7 @@ class Executor:
         if kind not in ("WHOLE", "HALF"):
             return common | dict(status="UNKNOWN_CALENDAR")
         closed = now.replace(hour=13 if kind == "HALF" else 16, minute=0, second=0, microsecond=0)
+        common["close"] = closed.isoformat()
         states = self.checked(self.q.get_market_state(["US.AAPL"])).to_dict("records")
         regular = all(str(r["market_state"]) in ("MORNING", "AFTERNOON") for r in states)
         if len(states) != 1 or not regular:

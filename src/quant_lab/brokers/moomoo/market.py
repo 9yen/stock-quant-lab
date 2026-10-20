@@ -80,6 +80,7 @@ def analyze(code, rows, market, now):
         volume=bars[-1]["volume"] if bars else None,
         opening_minutes=signal["opening_minutes"],
         signal=candidate if regular and filtered else "WAIT",
+        five_signal=signal["five_signal"],
         reason=(
             "交易状态暂不可用，暂停入场"
             if market == "UNKNOWN"

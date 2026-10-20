@@ -54,6 +54,26 @@ class WebTests(unittest.TestCase):
     def test_rebinding_host_blocked(self):
         self.assertEqual(self.request("/", headers={"Host": "evil.example"})[0], 403)
 
+    def test_shared_moomoo_status_chart_and_review_stay_in_broker_scope(self):
+        from quant_lab.dashboard.desks import review_home
+        from quant_lab.runtime.storage import write_json
+
+        write_json(
+            self.root / "state/reviews/2026-10-20.json", dict(day="2026-10-20", desk="alpaca")
+        )
+        write_json(
+            review_home(self.root) / "state/reviews/2026-10-20.json",
+            dict(day="2026-10-20", desk="moomoo"),
+        )
+        status, body = self.request("/api/review?day=2026-10-20&broker=moomoo")
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["desk"], "moomoo")
+        self.assertEqual(self.request("/api/status?broker=../../.env")[0], 400)
+        status, body = self.request("/api/status?broker=moomoo")
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["broker"], "moomoo")
+        self.assertEqual(self.request("/api/chart?symbol=../../.env&broker=moomoo")[0], 400)
+
     def test_stop_requires_origin_and_token(self):
         self.assertEqual(self.request("/api/stop", "POST")[0], 403)
         headers = {"Origin": "https://evil.example", "X-Dashboard-Token": "test-token"}

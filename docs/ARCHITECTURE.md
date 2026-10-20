@@ -1,5 +1,15 @@
 # Architecture
 
+Both desk URLs serve the canonical `index.html` template and `app.js` renderer.
+`dashboard/desks.py` adapts cached moomoo snapshots to the shared display schema;
+broker selection scopes status streams, charts, historical reviews and stop requests.
+It never creates a trading client. The observer computes stock-only FIFO and
+estimated NZ fee reports in a separate private `state/brokers/moomoo_desk` tree.
+Existing gross performance records, order journals and authorization remain intact.
+Optional options/evaluation views share the same navigation and styles, with explicit
+capability messages. The UI does not turn unsupported broker features into permissions.
+Alpaca protective brackets and moomoo local stop management remain distinct.
+
 The supported application is an installable `src/` package. Root scripts are not a second implementation. Broker execution stays separate because permissions, order semantics and protective orders differ.
 
 ```text

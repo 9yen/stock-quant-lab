@@ -43,6 +43,8 @@ Use Docker for the tested Linux execution environment. OpenD still needs a separ
 - Long and short **whole-share** paper orders across a curated 100-stock universe. This is not an official Nasdaq-100 membership feed.
 - Reserved exposure for pending orders, position slots, entry limits, persistent intents and order reconciliation.
 - Candles, custom moving averages, volume, actual-fill markers, per-symbol P&L and daily reviews.
+- Both brokers share one desk template, chart renderer and interaction model;
+  broker adapters keep stop requests, data feeds and review archives isolated.
 - Continuous paper session management and recovery of exited workers without erasing stops or daily risk locks.
 - A separate small long-option pilot on eligible moomoo paper accounts. No naked options or 0DTE strategy.
 - Bounded stock-filter evaluation with chronological training, validation, holdout and slippage stress tests.

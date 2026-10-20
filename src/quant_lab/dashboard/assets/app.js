@@ -1,10 +1,13 @@
+const deskBroker=location.pathname==='/moomoo.html'?'moomoo':'alpaca',deskName=deskBroker==='moomoo'?'moomoo':'Alpaca',deskFeed=deskBroker==='moomoo'?'moomoo':'IEX';
+function deskURL(value){const u=new URL(value,location.origin);if(deskBroker==='moomoo'){if(u.pathname==='/api/stop')u.pathname='/api/moomoo/stop';else if(['/api/chart','/api/review','/api/status','/events'].includes(u.pathname))u.searchParams.set('broker','moomoo');}return u.pathname+u.search;}
+const deskFetch=(url,options)=>fetch(deskURL(url),options);
 const closedReturn=v=>v==null?'—':(v>=0?'+':'')+Number(v).toFixed(2)+'%';
 const markerLabel=v=>({'开多':'买入·开多','平多':'卖出·平多','开空':'卖出·开空','回补':'买入·回补'})[v]||v;
 'use strict';
 const $=id=>document.getElementById(id), money=v=>Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 let latest=null,paused=false,connected=false,filter='all',frame=1,kind='candles',zoom=1,pan=0,hover=null,drag=null,lastEvent=0;
 let maPeriods=[20,50];
-let selectedSymbol='SPY',chartData=null,chartSequence=0,chartBusy=false,chartController=null,chartError=false;
+let selectedSymbol=deskBroker==='moomoo'?'AAPL':'SPY',chartData=null,chartSequence=0,chartBusy=false,chartController=null,chartError=false;
 function currentChart(){return chartData?.symbol===selectedSymbol?chartData:{symbol:selectedSymbol,bars:[],bar_minutes:1};}
 const canvas=$('chart'),ctx=canvas.getContext('2d'),terminal=new Set(['filled','canceled','expired','rejected','replaced']);
 function text(id,value){$(id).textContent=value;}
@@ -13,6 +16,7 @@ function finite(v){return Number.isFinite(Number(v));}
 function render(data,fromStream=true){
  latest=data;if(fromStream)lastEvent=Date.now();
  if(paused)return;
+ window.dispatchEvent(new CustomEvent('quant:desk',{detail:data}));
  if(connected)text('connection',data.mode==='DEMO'?'DEMO · 合成数据':data.risk.allow_short?'LIVE · 多空双向':'LIVE · 只做多');
  const a=data.account,b=data.backend;
  text('chart-symbol',selectedSymbol);
@@ -27,14 +31,14 @@ function render(data,fromStream=true){
  text('direction-mode',data.risk.strategy==='multi_1m'?'100股 1m / 多空多仓 · 候选与持仓并发检查':data.risk.allow_short?'开盘区间突破 / 多空双向 · 一次一个方向':'开盘区间突破 / 只做多 SPY');
  text('filter-policy',(data.risk.entry_variant==='bounded_orb'?'V3试运行：开盘区间宽度≤3%，突破距离≤1.5×ATR14；全样本尚未验证盈利。':'')+(data.risk.trend_filter?'入场过滤已启用：MA20方向、VWAP同侧、当前分钟量不低于前20分钟均量；条件不足不入场。':'入场过滤未启用'));
  text('daily-loss-budget',(data.risk.strategy_daily_loss*100).toFixed(0)+'%');
- text('daily-loss-note',`按Alpaca本场基准净值计算，包含浮盈亏。达到 ${(data.risk.strategy_daily_loss*100).toFixed(0)}% 即锁定入场并尝试撤单平仓；绝对容忍上限 ${(data.risk.loss_limit*100).toFixed(0)}%，不等到该上限才退出。moomoo费用为独立估算。`);
+ text('daily-loss-note',`按${deskName}本场基准净值计算，包含浮盈亏。达到 ${(data.risk.strategy_daily_loss*100).toFixed(0)}% 即锁定入场并尝试撤单平仓；绝对容忍上限 ${(data.risk.loss_limit*100).toFixed(0)}%，不等到该上限才退出。moomoo费用为独立估算。`);
  text('risk-status',data.risk.halted?'已触发本场风险锁定，停止新增入场。':b.stopped?'已请求停止，后台将尝试撤单和退出。':'风险限制已启用。当前网页不会修改交易参数。');
  if(b.stopped){$('stop').disabled=true;text('stop','已请求停止，等待确认');}
  const problems=[];
  if(data.account_error)problems.push('账户连接失败，以下为上次成功读取的数据');
  if(a&&Date.now()-Date.parse(a.fetched)>45000)problems.push('账户数据已超过 45 秒未更新');
  if(!b.healthy&&!b.completed&&!b.managed_wait)problems.push(b.alive?'后台心跳过期':'后台交易进程未运行');
- if(data.quote_error)problems.push('IEX 报价暂不可用');
+ if(data.quote_error)problems.push(deskFeed+' 报价暂不可用');
  if(a?.chart_error)problems.push('K 线读取失败，等待下一次刷新');
  if(chartError)problems.push(selectedSymbol+' 图表更新失败，保留上次数据');
  $('error').hidden=!problems.length;text('error',problems.join(' · '));
@@ -63,13 +67,13 @@ function render(data,fromStream=true){
  if(q&&q.symbol===selectedSymbol&&finite(q.bid)&&finite(q.ask)&&q.bid>0&&q.ask>=q.bid){
   text('quote-price','$'+money((q.bid+q.ask)/2));
   text('bidask','买价 '+money(q.bid)+' / 卖价 '+money(q.ask));
- }else{text('quote-price','—');text('bidask','买价 — / 卖价 —');}
+ }else{const last=currentChart().bars?.at(-1);text('quote-price',last?'$'+money(last.close):'—');text('quote-note',last?'最近已完成收盘价':'等待行情');text('bidask','买价 — / 卖价 —');}
  renderEvents(data.events);draw();updateTime();
 }
 function renderOrders(rows=[]){
  const selected=rows.filter(r=>filter==='all'||(filter==='filled'?r.raw_status==='filled':!terminal.has(r.raw_status)));
  text('order-count',selected.length);$('orders').replaceChildren();
- if(!selected.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=7;td.className='empty';td.textContent='暂无符合条件的 SPY 订单';tr.append(td);$('orders').append(tr);return;}
+ if(!selected.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=7;td.className='empty';td.textContent='暂无符合条件的订单';tr.append(td);$('orders').append(tr);return;}
  for(const r of selected){const tr=document.createElement('tr');
   for(const [i,v]of [(r.symbol||'SPY')+' / '+r.time,r.intent_label||r.side,r.qty,r.filled,r.price===null?'—':'$'+money(r.price),r.type,r.status].entries()){
    const td=document.createElement('td');td.textContent=v??'—';
@@ -92,7 +96,7 @@ async function refreshChart(force=false){
  if(chartBusy&&!force)return;
  if(chartController)chartController.abort();
  const sequence=++chartSequence,symbol=selectedSymbol;chartBusy=true;chartController=new AbortController();
- try{const response=await fetch('/api/chart?symbol='+encodeURIComponent(symbol),{signal:chartController.signal});if(!response.ok)throw new Error('chart unavailable');const chart=await response.json();if(sequence!==chartSequence||symbol!==selectedSymbol)return;chartData=chart;chartError=false;if(latest)render(latest,false);}
+ try{const response=await deskFetch('/api/chart?symbol='+encodeURIComponent(symbol),{signal:chartController.signal});if(!response.ok)throw new Error('chart unavailable');const chart=await response.json();if(sequence!==chartSequence||symbol!==selectedSymbol)return;chartData=chart;chartError=false;if(latest)render(latest,false);}
  catch(error){if(error.name!=='AbortError'&&sequence===chartSequence){chartError=true;text('chart-date',symbol+' 行情暂不可用');text('quote-note','图表行情暂不可用');}}
  finally{if(sequence===chartSequence)chartBusy=false;}
 }
@@ -101,7 +105,7 @@ function renderScanner(scan){
  const age=scan.recorded_at?(Date.now()-Date.parse(scan.recorded_at))/1000:Infinity;
  const stale=age>90,labels={LONG:'向上突破 · 做多候选',SHORT:'向下突破 · 做空候选',WAIT:'等待',STALE:'过期',INVALID:'异常',INCOMPLETE:'数据不完整'};
  const active=latest?.risk?.strategy==='multi_1m';
- text('scanner-note',(stale?'扫描数据过期或尚未就绪':`更新于 ${localTime(scan.recorded_at)} · 20 秒轮询`)+ (active?' · 100股 1m 已接入统一模拟执行；原 ETF 只退出；下单前独立检查':' · 自动交易仍为 SPY 5m；此表只观察')+(scan.reason?' · '+scan.reason:''));
+ text('scanner-note',(stale?'扫描数据过期或尚未就绪':`更新于 ${localTime(scan.recorded_at)} · 20 秒轮询`)+ (active?(deskBroker==='moomoo'?' · 100股 1m 已接入统一模拟执行；下单前独立检查':' · 100股 1m 已接入统一模拟执行；原 ETF 只退出；下单前独立检查'):' · 自动交易仍为 SPY 5m；此表只观察')+(scan.reason?' · '+scan.reason:''));
  for(const r of scan.rows||[]){const tr=document.createElement('tr');
   for(const [i,v]of [r.symbol,finite(r.price)&&r.price!==null?'$'+money(r.price):'—',stale?'过期':labels[r.minute_signal]||r.minute_signal,stale?'过期':labels[r.five_signal]||r.five_signal,r.shortable===null?'未知':r.shortable?'当前可借券':'当前不满足',`${latest?.risk?.per_symbol_entries?.[r.symbol]||0} / ${latest?.risk?.per_symbol_limit||19}`,`${r.opening_minutes}/15`,(active&&r.minute_signal==='LONG'&&!r.filter_long)||(active&&r.minute_signal==='SHORT'&&!r.filter_short)?'策略过滤：MA20/VWAP/量能未通过':r.reason].entries()){
    const td=document.createElement('td');td.textContent=i===7&&active&&String(v).includes('仅观察')?'执行前仍需即时报价与组合风控检查':v;
@@ -158,7 +162,7 @@ function draw(){
  const colors=['#e0c36e','#87a9ff','#d796eb'];
  maSeries.forEach((series,j)=>{ctx.strokeStyle=colors[j%colors.length];ctx.lineWidth=1.5;ctx.beginPath();let drawing=false;for(let i=0;i<bars.length;i++){const v=series[start+i];if(v===null){drawing=false;continue;}if(!drawing){ctx.moveTo(x(i),y(v));drawing=true;}else ctx.lineTo(x(i),y(v));}ctx.stroke();ctx.lineWidth=1;ctx.fillStyle=colors[j%colors.length];ctx.textAlign='left';chartText(ctx,'MA'+maPeriods[j],L+j*65,12);});
  const volumeTop=h*.80,volumeBottom=h-30,maxVolume=Math.max(1,...bars.map(b=>Number(b.volume||0)));
- ctx.strokeStyle='#263039';ctx.beginPath();ctx.moveTo(L,volumeTop-9);ctx.lineTo(R,volumeTop-9);ctx.stroke();ctx.textAlign='left';ctx.fillStyle='#81909c';chartText(ctx,'成交量 · IEX',L,volumeTop-13);
+ ctx.strokeStyle='#263039';ctx.beginPath();ctx.moveTo(L,volumeTop-9);ctx.lineTo(R,volumeTop-9);ctx.stroke();ctx.textAlign='left';ctx.fillStyle='#81909c';chartText(ctx,'成交量 · '+deskFeed,L,volumeTop-13);
  for(const [i,b]of bars.entries()){const v=Number(b.volume||0);ctx.fillStyle=b.close>=b.open?'#4d9877':'#ad6d68';const bw=Math.max(1,(R-L)/bars.length*.65);ctx.fillRect(x(i)-bw/2,volumeBottom-v/maxVolume*(volumeBottom-volumeTop),bw,v/maxVolume*(volumeBottom-volumeTop));}
  // Actual fills, aligned to their containing candle and their executed price.
  const labelBoxes=[];
@@ -167,7 +171,7 @@ function draw(){
   for(let lane=0;lane<2;lane++){const top=yy+(buy?14+lane*15:-26-lane*15);if(top<T||top+13>B)continue;const box={left,right:left+width,top,bottom:top+13};if(labelBoxes.some(p=>box.left<p.right+4&&box.right+4>p.left&&box.top<p.bottom+3&&box.bottom+3>p.top))continue;ctx.textAlign='left';chartText(ctx,label,left+4,top+10);labelBoxes.push(box);break;}
  }
  // Opening range uses the original three complete 5m bars, independent of zoom/timeframe.
- const opening=(currentChart().bars||[]).filter(b=>{const t=new Date(b.time).toLocaleTimeString('en-GB',{timeZone:'America/New_York',hour12:false});return t>='09:30:00'&&t<'09:45:00';});
+ const opening=(currentChart().bars||[]).filter(b=>{const t=new Date(b.time).toLocaleTimeString('en-GB',{timeZone:'America/New_York',hour12:false});return deskBroker==='moomoo'?t>='09:31:00'&&t<'09:46:00':t>='09:30:00'&&t<'09:45:00';});
  if(opening.length===15/(currentChart().bar_minutes||1))for(const [p,name]of [[Math.max(...opening.map(b=>b.high)),'区间上沿'],[Math.min(...opening.map(b=>b.low)),'区间下沿']]){
   if(p<min||p>max)continue;ctx.strokeStyle='#d7b776';ctx.setLineDash([5,5]);ctx.beginPath();ctx.moveTo(L,y(p));ctx.lineTo(R,y(p));ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='#d7b776';chartText(ctx,name,L+5,y(p)-6);
  }
@@ -190,7 +194,7 @@ function updateTime(){
 }
 document.querySelectorAll('[data-view]').forEach(btn=>btn.addEventListener('click',()=>{
  document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('selected',b===btn));
- for(const name of ['overview','orders','risk','history'])$(name+'-view').hidden=name!==btn.dataset.view;
+ for(const name of ['overview','orders','risk','history','options','optimize'])$(name+'-view').hidden=name!==btn.dataset.view;
  document.querySelectorAll('[data-page]').forEach(section=>section.hidden=section.dataset.page!==btn.dataset.view);
  text('page-title',btn.querySelector('span').textContent);window.scrollTo({top:0,behavior:'instant'});draw();
 }));
@@ -208,10 +212,10 @@ new ResizeObserver(draw).observe(canvas);
 $('stop').addEventListener('click',()=>$('stop-dialog').showModal());$('cancel-stop').addEventListener('click',()=>$('stop-dialog').close());
 $('confirm-stop').addEventListener('click',async()=>{
  $('confirm-stop').disabled=true;
- try{const response=await fetch('/api/stop',{method:'POST',headers:{'X-Dashboard-Token':document.querySelector('meta[name="dashboard-token"]').content}});if(!response.ok)throw new Error('request failed');text('stop-message','请求已保存，等待后台确认撤单和持仓退出。');$('stop').disabled=true;text('stop','已请求停止');}
+ try{const response=await deskFetch('/api/stop',{method:'POST',headers:{'X-Dashboard-Token':document.querySelector('meta[name="dashboard-token"]').content}});if(!response.ok)throw new Error('request failed');text('stop-message','请求已保存，等待后台确认撤单和持仓退出。');$('stop').disabled=true;text('stop','已请求停止');}
  catch{text('stop-message','请求未送达，请检查本机服务。');$('confirm-stop').disabled=false;}
 });
-const stream=new EventSource('/events');
+const stream=new EventSource(deskURL('/events'));
 stream.onopen=()=>{connected=true;if(!paused){text('connection','LIVE · 本机');$('connection').className='pill';}};
 stream.onmessage=event=>{try{const data=JSON.parse(event.data);if(!paused){text('connection','LIVE · 本机');$('connection').className='pill';}render(data);}catch{ text('connection','数据异常');}};
 stream.onerror=()=>{connected=false;if(!paused){text('connection','正在重连');$('connection').className='pill connecting';}};
@@ -243,7 +247,7 @@ function renderHistory(review,error){
  if(stamp===historyStamp)return;historyStamp=stamp;
  if(review.current?.day===historySelected){historyRecord=review.current;showHistory();return;}
  text('history-note','正在读取 '+historySelected+' 的已保存记录…');
- fetch('/api/review?day='+encodeURIComponent(historySelected)).then(r=>{if(!r.ok)throw Error();return r.json();}).then(r=>{if(r.day===historySelected){historyRecord=r;showHistory();}}).catch(()=>{historyStamp='';text('history-note','历史记录暂不可用，等待下次刷新');});
+ deskFetch('/api/review?day='+encodeURIComponent(historySelected)).then(r=>{if(!r.ok)throw Error();return r.json();}).then(r=>{if(r.day===historySelected){historyRecord=r;showHistory();}}).catch(()=>{historyStamp='';text('history-note','历史记录暂不可用，等待下次刷新');});
 }
 function showHistory(){const r=historyRecord;if(!r)return;
  text('history-note',r.day+' 美东 · '+r.status+(r.reconciled?' · 成交与持仓已核对':' · 成交尚待核对')+' · 更新 '+localTime(r.updated)+(r.valuation_time?' · 浮盈亏采样 '+localTime(r.valuation_time):' · 无历史浮盈亏采样，合计暂缺'));
@@ -274,3 +278,9 @@ $('older-bars').addEventListener('click',()=>shiftChart(1));$('newer-bars').addE
 function quantText(value){return window.QuantI18n?.t(value)??value;}
 function chartText(context,value,...coordinates){context.fillText(quantText(value),...coordinates);}
 window.addEventListener("quant:locale",()=>{draw();});
+
+document.querySelector('.eyebrow').textContent=deskName.toUpperCase()+' / AUTOMATED PAPER DESK';
+document.title=deskName+' / Live Desk';document.querySelector('.brand').href=deskBroker==='moomoo'?'/moomoo.html':'/';
+$('broker-select').value=deskBroker;text('chart-symbol',selectedSymbol);text('chart-source',deskFeed+' · 分钟行情');
+text('feed-note',deskFeed+' · 已完成K线 · 成交量按各自行情源展示');
+if(deskBroker==='moomoo'){text('protective-title','本机退出保护');text('protective-note','止盈止损由本机执行，需要电脑、OpenD及网络在线；不是券商托管保护单。');text('cooldown-policy','每股每天最多19次入场，全池最多100次；每股冷却5分钟。');}

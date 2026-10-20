@@ -3,3 +3,5 @@
  #chart-select{background:#1b2823;color:#b9dfc8;border:1px solid #385a46;border-radius:6px;padding:7px;font:inherit;font-size:11px;max-width:80px}.option-panel{margin:20px 0}.option-note{font-size:12px;line-height:1.8;color:#e5c28b;padding:0 20px}.option-policy{margin:12px 20px 18px;font-size:11px;line-height:1.9;color:#92a79d}
 
 #chart-search,#ma-periods,#history-day,#history-sort{background:#182127;color:#d9e9df;border:1px solid #385a46;border-radius:6px;padding:7px;font:inherit;font-size:11px}#chart-search{width:125px}.chart-actions{flex-wrap:wrap}.canvas-wrap{height:380px}.risk-page .table-wrap{max-height:420px}
+
+#equity-chart{display:block;width:100%;height:160px}.panel-content{padding:0 22px 20px;color:var(--muted);font-size:12px;line-height:1.8}.option-panel{margin-bottom:20px}.risk-page>p{line-height:1.8}

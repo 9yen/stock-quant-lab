@@ -39,6 +39,7 @@ class LiveData:
         self.closing = threading.Event()
         self.chart_lock = threading.Lock()
         self.charts = {}
+        self.equity_curve = read_json(root / "state/desk_equity_alpaca.json", [])
 
     def state(self):
         local = local_status(self.root)
@@ -48,6 +49,7 @@ class LiveData:
                 quote=self.quote,
                 account_error=self.error,
                 quote_error=self.quote_error,
+                extensions=dict(equity_curve=list(self.equity_curve)),
             )
         last = local["last"]
         auth = read_json(self.root / "state" / "paper_authorization.json", {})
@@ -165,6 +167,12 @@ class LiveData:
         while not self.closing.is_set():
             try:
                 account = account_snapshot(self.root)
+                from quant_lab.runtime.storage import write_json
+
+                self.equity_curve = (
+                    self.equity_curve + [dict(time=account["fetched"], equity=account["equity"])]
+                )[-1800:]
+                write_json(self.root / "state/desk_equity_alpaca.json", self.equity_curve)
                 with self.lock:
                     self.account, self.error = account, None
             except Exception as exc:
@@ -238,6 +246,26 @@ def make_handler(store, token, port):
             if not self.valid_host():
                 return self.reply(403, b'{"error":"host"}')
             path = urlsplit(self.path).path
+            broker = parse_qs(urlsplit(self.path).query).get("broker", ["alpaca"])[0]
+            if broker not in ("alpaca", "moomoo"):
+                return self.reply(400, b'{"error":"unsupported broker"}')
+
+            def desk_state():
+                if broker == "moomoo":
+                    from quant_lab.dashboard.desks import moomoo_state
+
+                    value = moomoo_state(store.root)
+                    if store.state().get("mode") == "DEMO":
+                        value["mode"] = "DEMO"
+                        value["account_error"] = None
+                        if value.get("account"):
+                            value["account"]["fetched"] = value["server_time"]
+                        value["backend"].update(
+                            demo=True, healthy=True, label="DEMO · Synthetic data only"
+                        )
+                    return value
+                return store.state()
+
             if path == "/api/review":
                 from datetime import date
 
@@ -247,7 +275,12 @@ def make_handler(store, token, port):
                         raise ValueError("Invalid date")
                 except ValueError:
                     return self.reply(400, b'{"error":"invalid date"}')
-                record = read_json(store.root / "state" / "reviews" / f"{day}.json")
+                review_root = store.root
+                if broker == "moomoo":
+                    from quant_lab.dashboard.desks import review_home
+
+                    review_root = review_home(store.root)
+                record = read_json(review_root / "state" / "reviews" / f"{day}.json")
                 if record is None:
                     return self.reply(404, b'{"error":"not found"}')
                 return self.reply(200, json.dumps(record, ensure_ascii=False).encode("utf-8"))
@@ -256,6 +289,18 @@ def make_handler(store, token, port):
                 from quant_lab.strategies.scanner import UNIVERSE
 
                 symbol = parse_qs(urlsplit(self.path).query).get("symbol", ["SPY"])[0]
+                if broker == "moomoo":
+                    from quant_lab.dashboard.desks import moomoo_chart
+
+                    try:
+                        return self.reply(
+                            200,
+                            json.dumps(moomoo_chart(store.root, symbol), ensure_ascii=False).encode(
+                                "utf-8"
+                            ),
+                        )
+                    except ValueError:
+                        return self.reply(400, b'{"error":"unsupported symbol"}')
                 if symbol not in UNIVERSE:
                     return self.reply(400, b'{"error":"unsupported symbol"}')
                 try:
@@ -299,9 +344,7 @@ def make_handler(store, token, port):
                 )
                 return self.reply(200, json.dumps(record, ensure_ascii=False).encode("utf-8"))
             if path == "/api/status":
-                return self.reply(
-                    200, json.dumps(store.state(), ensure_ascii=False).encode("utf-8")
-                )
+                return self.reply(200, json.dumps(desk_state(), ensure_ascii=False).encode("utf-8"))
             if path == "/events":
                 self.send_response(200)
                 self.send_header("Content-Type", "text/event-stream")
@@ -312,7 +355,7 @@ def make_handler(store, token, port):
                     while not store.closing.is_set():
                         self.wfile.write(
                             (
-                                "data: " + json.dumps(store.state(), ensure_ascii=False) + "\n\n"
+                                "data: " + json.dumps(desk_state(), ensure_ascii=False) + "\n\n"
                             ).encode("utf-8")
                         )
                         self.wfile.flush()
@@ -323,12 +366,13 @@ def make_handler(store, token, port):
             assets = {
                 "/": ("index.html", "text/html; charset=utf-8"),
                 "/app.js": ("app.js", "text/javascript; charset=utf-8"),
+                "/desk-extras.js": ("desk-extras.js", "text/javascript; charset=utf-8"),
                 "/i18n.js": ("i18n.js", "text/javascript; charset=utf-8"),
                 "/i18n.css": ("i18n.css", "text/css; charset=utf-8"),
                 "/locales/en.json": ("locales/en.json", "application/json; charset=utf-8"),
                 "/locales/zh-CN.json": ("locales/zh-CN.json", "application/json; charset=utf-8"),
                 "/style.css": ("style.css", "text/css; charset=utf-8"),
-                "/moomoo.html": ("moomoo.html", "text/html; charset=utf-8"),
+                "/moomoo.html": ("index.html", "text/html; charset=utf-8"),
                 "/moomoo.js": ("moomoo.js", "text/javascript; charset=utf-8"),
                 "/automation.js": ("automation.js", "text/javascript; charset=utf-8"),
                 "/automation.css": ("automation.css", "text/css; charset=utf-8"),

@@ -146,12 +146,22 @@ def snapshot():
             {k: o.get(k) for k in ("symbol", "qty", "filled", "average", "status")}
             for o in cleanup.get("orders", {}).values()
         ]
+        from quant_lab.dashboard.desks import stock_report
+
+        updated = datetime.now(timezone.utc).isoformat()
+        try:
+            reporting = stock_report(
+                ROOT, journal.get("fills", []), holdings, auto, market, updated
+            )
+        except Exception as exc:
+            reporting = dict(review_error=type(exc).__name__, realized_complete=False)
         return dict(
             ok=True,
             mode="SIMULATE / READ ONLY",
             account=identity,
             currency="USD",
-            updated=datetime.now(timezone.utc).isoformat(),
+            updated=updated,
+            stock_report=reporting,
             options_watch=options_watch,
             performance=performance,
             strategy_budget=budget,

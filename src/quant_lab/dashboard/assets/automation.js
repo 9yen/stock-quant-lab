@@ -25,6 +25,6 @@
    }catch{document.getElementById('automation-service').textContent='自动守护状态读取失败';}
  }
  const select=document.getElementById('broker-select');
- if(select&&location.pathname!=='/moomoo.html')select.addEventListener('change',()=>{if(select.value==='moomoo')location.href='/moomoo.html';});
+ if(select)select.addEventListener('change',()=>{const target=select.value==='moomoo'?'/moomoo.html':'/';if(location.pathname!==target)location.href=target;});
  refresh();setInterval(refresh,10000);
 })();
