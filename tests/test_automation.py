@@ -33,8 +33,11 @@ class AutomationTests(unittest.TestCase):
         ) as popen:
             report = Supervisor(self.root, launch, self.processes).step()
         self.assertTrue(all(row["state"] == "STARTING" for row in report["workers"]))
-        self.assertEqual(popen.call_count, 6)
+        self.assertEqual(popen.call_count, 7)
         commands = [call.args[0] for call in popen.call_args_list]
+        self.assertTrue(
+            any("scan-alpaca" in command and "--watch" in command for command in commands)
+        )
         self.assertTrue(all(command[2:4] == ["-m", "quant_lab"] for command in commands))
         self.assertTrue(
             any("run-moomoo" in command and "--execute-paper" in command for command in commands)
@@ -228,6 +231,7 @@ class AutomationTests(unittest.TestCase):
         names = [
             "web_dashboard.py",
             "alpaca_auto.py",
+            "scan_intraday.py",
             "moomoo_market.py",
             "moomoo_observer.py",
             "moomoo_options_watch.py",

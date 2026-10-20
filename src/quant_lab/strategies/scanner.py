@@ -181,7 +181,7 @@ def collect(client, data, include_assets=True):
         universe=list(UNIVERSE),
         recorded_at=now.isoformat(),
         rows=[],
-        note="1m/5m comparison only; execution remains the separately authorized SPY strategy.",
+        note="Read-only 1m/5m radar; orders require the separately authorized executor.",
     )
     if not sessions:
         return result | dict(reason="今天没有正常交易时段")

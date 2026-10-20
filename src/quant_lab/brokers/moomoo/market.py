@@ -1,5 +1,6 @@
 """Three-symbol read-only minute feed and existing ORB signal validation."""
 
+import threading
 import time
 from datetime import datetime
 from datetime import time as walltime
@@ -13,6 +14,37 @@ from quant_lab.strategies.universe import WATCH_UNIVERSE
 NY = ZoneInfo("America/New_York")
 
 CODES = ["US." + symbol for symbol in WATCH_UNIVERSE]
+
+
+class MarketStates:
+    """One bounded bulk request per 20 seconds across all minute workers."""
+
+    def __init__(self, codes, clock=time.monotonic):
+        self.codes, self.clock = codes, clock
+        self.updated, self.states = None, {}
+        self.lock = threading.Lock()
+
+    def get(self, ctx):
+        now = self.clock()
+        if (self.updated is None or now - self.updated >= 20) and self.lock.acquire(blocking=False):
+            try:
+                # Recheck after acquiring: another worker may have just refreshed.
+                if self.updated is None or self.clock() - self.updated >= 20:
+                    try:
+                        ret, data = ctx.get_market_state(self.codes)
+                        self.states = (
+                            {r["code"]: str(r["market_state"]) for r in data.to_dict("records")}
+                            if ret == 0
+                            else {}
+                        )
+                    except Exception:
+                        self.states = {}
+                    self.updated = self.clock()
+            finally:
+                self.lock.release()
+        if self.updated is None or self.clock() - self.updated > 30:
+            return {}
+        return dict(self.states)
 
 
 def analyze(code, rows, market, now):
@@ -49,7 +81,9 @@ def analyze(code, rows, market, now):
         opening_minutes=signal["opening_minutes"],
         signal=candidate if regular and filtered else "WAIT",
         reason=(
-            "常规时段之外，禁止入场"
+            "交易状态暂不可用，暂停入场"
+            if market == "UNKNOWN"
+            else "常规时段之外，禁止入场"
             if not regular
             else signal["reason"]
             if candidate not in ("LONG", "SHORT")
@@ -90,6 +124,7 @@ def main():
     lock = threading.Lock()
     latest = {}
     stop = threading.Event()
+    market_states = MarketStates(CODES)
 
     def worker(codes):
         while not stop.is_set():
@@ -101,12 +136,7 @@ def main():
                     raise RuntimeError("Minute subscription failed")
                 calendar_cache = {}
                 while not stop.is_set():
-                    ret, states = ctx.get_market_state(codes)
-                    state = (
-                        {r["code"]: str(r["market_state"]) for r in states.to_dict("records")}
-                        if ret == RET_OK
-                        else {}
-                    )
+                    state = market_states.get(ctx)
                     session_day = str(datetime.now(NY).date())
                     if session_day not in calendar_cache:
                         ret, dates = ctx.request_trading_days(

@@ -1,11 +1,61 @@
 import unittest
 from datetime import datetime, timedelta
+from unittest.mock import MagicMock
 from zoneinfo import ZoneInfo
 
-from quant_lab.brokers.moomoo.market import analyze, exit_decision
+import pandas as pd
+
+from quant_lab.brokers.moomoo.market import MarketStates, analyze, exit_decision
 
 
 class MoomooRiskTests(unittest.TestCase):
+    def test_shared_market_states_use_one_request_across_workers(self):
+        clock = MagicMock(return_value=0)
+        ctx = MagicMock()
+        ctx.get_market_state.return_value = (
+            0,
+            pd.DataFrame([dict(code="US.AAPL", market_state="AFTERNOON")]),
+        )
+        cache = MarketStates(["US.AAPL", "US.MSFT"], clock)
+        for _ in range(4):
+            self.assertEqual(cache.get(ctx)["US.AAPL"], "AFTERNOON")
+        ctx.get_market_state.assert_called_once_with(["US.AAPL", "US.MSFT"])
+        clock.return_value = 21
+        cache.get(ctx)
+        self.assertEqual(ctx.get_market_state.call_count, 2)
+
+    def test_market_state_failure_does_not_reuse_old_regular_status(self):
+        clock = MagicMock(return_value=0)
+        ctx = MagicMock()
+        ctx.get_market_state.return_value = (
+            0,
+            pd.DataFrame([dict(code="US.AAPL", market_state="AFTERNOON")]),
+        )
+        cache = MarketStates(["US.AAPL"], clock)
+        cache.get(ctx)
+        clock.return_value = 21
+        ctx.get_market_state.return_value = (-1, "unavailable")
+        self.assertEqual(cache.get(ctx), {})
+        self.assertEqual(cache.get(ctx), {})
+        self.assertEqual(ctx.get_market_state.call_count, 2)
+
+    def test_busy_expired_cache_is_nonblocking_and_fail_closed(self):
+        clock = MagicMock(return_value=40)
+        cache = MarketStates(["US.AAPL"], clock)
+        cache.updated = 0
+        cache.states = {"US.AAPL": "AFTERNOON"}
+        cache.lock.acquire()
+        try:
+            self.assertEqual(cache.get(MagicMock()), {})
+        finally:
+            cache.lock.release()
+
+    def test_unknown_market_is_unavailable_not_confirmed_closed(self):
+        now = datetime(2026, 10, 20, 10, tzinfo=ZoneInfo("America/New_York"))
+        row = analyze("US.AAPL", [], "UNKNOWN", now)
+        self.assertEqual(row["signal"], "WAIT")
+        self.assertIn("暂不可用", row["reason"])
+
     def test_long_stop_and_take(self):
         self.assertEqual(exit_decision("LONG", 100, 99, True, True), "STOP")
         self.assertEqual(exit_decision("LONG", 100, 102, True, True), "TAKE_PROFIT")

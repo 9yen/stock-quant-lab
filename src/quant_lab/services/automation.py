@@ -370,6 +370,7 @@ class Supervisor:
             wanted.append(("daily_review.py", (), True))
         if config.get("alpaca_enabled"):
             wanted.append(("alpaca_auto.py", ("--execute-paper",), False))
+            wanted.append(("scan_intraday.py", ("--watch",), False))
         if config.get("moomoo_enabled"):
             wanted += [
                 ("moomoo_market.py", (), True),
