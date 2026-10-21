@@ -137,3 +137,6 @@ Use `--home PATH` before the command, or `QUANT_LAB_HOME`, to select a writable 
 Older preview and backtest scripts are learning exercises and may use earlier strategies. They do not define the current intraday policy. No personal trading results or screenshots are included in this repository.
 
 MIT licensed. Broker names and SDKs belong to their respective owners; this project is not affiliated with or endorsed by them.
+
+Current runtime: Tuesday stock-only baseline, 100 stocks per broker. Options entries and the options watcher are disabled. See [rollback notes](docs/ROLLBACK_TUESDAY.zh-CN.md).
+

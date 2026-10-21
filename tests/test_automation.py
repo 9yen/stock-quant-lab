@@ -33,7 +33,8 @@ class AutomationTests(unittest.TestCase):
         ) as popen:
             report = Supervisor(self.root, launch, self.processes).step()
         self.assertTrue(all(row["state"] == "STARTING" for row in report["workers"]))
-        self.assertEqual(popen.call_count, 7)
+        self.assertEqual(popen.call_count, 6)
+        self.assertFalse(any("watch-options" in c.args[0] for c in popen.call_args_list))
         commands = [call.args[0] for call in popen.call_args_list]
         self.assertTrue(
             any("scan-alpaca" in command and "--watch" in command for command in commands)

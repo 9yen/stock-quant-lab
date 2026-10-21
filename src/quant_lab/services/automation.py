@@ -375,7 +375,6 @@ class Supervisor:
             wanted += [
                 ("moomoo_market.py", (), True),
                 ("moomoo_observer.py", ("--watch",), True),
-                ("moomoo_options_watch.py", (), True),
                 ("moomoo_auto.py", ("--execute-paper",), True),
             ]
         rows = []

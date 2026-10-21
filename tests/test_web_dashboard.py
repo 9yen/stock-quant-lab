@@ -83,6 +83,27 @@ class WebTests(unittest.TestCase):
         self.assertEqual(self.request("/api/stop", "POST", headers)[0], 200)
         self.assertTrue((self.root / "STOP_PAPER").exists())
 
+    def test_malformed_authenticated_stop_does_not_crash_or_change_state(self):
+        headers = {"Origin": f"http://127.0.0.1:{self.port}", "X-Dashboard-Token": "test-token"}
+        for framing in (
+            {"Content-Length": "oops"},
+            {"Content-Length": "-1"},
+            {"Transfer-Encoding": "chunked"},
+        ):
+            self.assertEqual(self.request("/api/stop", "POST", headers | framing)[0], 400)
+        self.assertFalse((self.root / "STOP_PAPER").exists())
+        self.assertEqual(self.request("/api/status")[0], 200)
+
+    def test_duplicate_host_is_rejected(self):
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=3)
+        connection.putrequest("GET", "/")
+        connection.putheader("Host", "evil.example")
+        connection.endheaders()
+        response = connection.getresponse()
+        self.assertEqual(response.status, 403)
+        response.read()
+        connection.close()
+
     def test_status_payload_whitelists_authorization(self):
         (self.root / "state").mkdir()
         (self.root / "state" / "paper_authorization.json").write_text(

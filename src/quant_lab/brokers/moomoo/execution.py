@@ -133,6 +133,8 @@ class Executor:
         return [dict(r, qty=position_qty(r)) for r in rows]
 
     def submit(self, code, qty, side, kind, price, bar, reason, now, contract=None):
+        if kind == "ENTRY" and contract and contract.get("instrument") == "OPTION":
+            raise ValueError("Options entries are disabled in stock-only mode")
         if contract and contract.get("instrument") == "OPTION":
             if contract.get("multiplier") != 100 or (
                 kind == "ENTRY" and (side != "BUY" or qty != 1)
@@ -313,7 +315,7 @@ class Executor:
             enabled=bool(auth.get("enabled")),
             automatic_trading=bool(auth.get("enabled")),
             account=masked(self.aid),
-            options_enabled=bool(auth.get("options_enabled")) and budget is None,
+            options_enabled=False,
             tuning_profile=profile,
             updated=now.isoformat(),
             positions=len(positions),
@@ -398,23 +400,27 @@ class Executor:
                     )
                 )
                 return common | dict(status="WAIT_CANCEL_CONFIRMATION")
+        tracked_stocks = {
+            o["symbol"] for o in self.state["orders"] if o.get("instrument") != "OPTION"
+        }
         tracked_options = {
             o["symbol"] for o in self.state["orders"] if o.get("instrument") == "OPTION"
         }
-        snaps = self.checked(
-            self.q.get_market_snapshot(
-                list(
-                    dict.fromkeys(
-                        CODES + [p["code"] for p in positions if p["code"] in tracked_options]
-                    )
+        try:
+            snaps = self.checked(
+                self.q.get_market_snapshot(
+                    list(dict.fromkeys(CODES + [p["code"] for p in positions]))
                 )
-            )
-        ).to_dict("records")
+            ).to_dict("records")
+        except Exception:
+            # Quote outages block entries, but not forced market exits of reconciled owned stocks.
+            snaps = []
+            common["quote_status"] = "UNAVAILABLE"
         quotes = {r["code"]: r for r in snaps}
         actual = {p["code"]: float(p["qty"]) for p in positions}
         mismatched = [
             code
-            for code in set(actual) | set(CODES) | tracked_options
+            for code in set(actual) | set(CODES) | tracked_options | tracked_stocks
             if abs(actual.get(code, 0) - owned_qty(self.state["orders"], code)) > 1e-7
         ]
         # Only exactly reconciled script positions can be sold/bought back.
@@ -422,7 +428,7 @@ class Executor:
             code = p["code"]
             qty = float(p["qty"])
             if (
-                code not in set(CODES) | tracked_options
+                code not in set(CODES) | tracked_options | tracked_stocks
                 or code in mismatched
                 or active(self.state["orders"], code)
             ):
@@ -456,7 +462,9 @@ class Executor:
                     True,
                 )
             reason = (
-                "DAILY_RISK"
+                "ROLLBACK_CLEANUP"
+                if code in self.state.get("rollback_exit_symbols", [])
+                else "DAILY_RISK"
                 if day["halted"]
                 else "PRECLOSE"
                 if now >= closed - timedelta(minutes=10)
@@ -559,61 +567,6 @@ class Executor:
                 or (row["signal"] == "SHORT" and mid >= low)
             ):
                 continue
-            option = None
-            if (
-                auth.get("options_enabled")
-                and budget is None
-                and len(
-                    {p["code"] for p in positions if p["code"] in tracked_options}
-                    | {
-                        o["symbol"]
-                        for o in active(self.state["orders"])
-                        if o.get("instrument") == "OPTION"
-                    }
-                )
-                < OPTION_CONCURRENT
-                and sum(o.get("instrument") == "OPTION" for o in entries) < OPTION_DAILY
-            ):
-                from quant_lab.brokers.moomoo.options import select_contract
-
-                try:
-                    option = select_contract(
-                        self.q, self.s, code, row["signal"], row["price"], equity, cash, now
-                    )
-                except Exception:
-                    option = None
-            if option:
-                if (
-                    reserve(positions, self.state["orders"]) + option["price"] * 100
-                    <= equity * GROSS
-                ):
-                    limits = self.checked(
-                        self.t.acctradinginfo_query(
-                            self.s.OrderType.NORMAL,
-                            option["code"],
-                            option["price"],
-                            trd_env=self.s.TrdEnv.SIMULATE,
-                            acc_id=self.aid,
-                            session=self.s.Session.RTH,
-                        )
-                    ).iloc[0]
-                    if float(limits["max_cash_buy"]) >= 1:
-                        if {p["code"]: float(p["qty"]) for p in self.positions()} != {
-                            p["code"]: float(p["qty"]) for p in positions
-                        }:
-                            return common | dict(status="POSITION_CHANGED")
-                        self.submit(
-                            option["code"],
-                            1,
-                            "BUY",
-                            "ENTRY",
-                            option["price"],
-                            row["last_bar"],
-                            "OPTION_" + row["signal"],
-                            now,
-                            option,
-                        )
-                        return common | dict(status="OPTION_ENTRY_SUBMITTED")
             if not entry_filter(row, profile):
                 continue
             short = row["signal"] == "SHORT"

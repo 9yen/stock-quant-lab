@@ -168,7 +168,12 @@ def signal_context(bars, now):
     )
 
 
-def collect(client, data, include_assets=True):
+_minute_cache = {}
+_minute_day = None
+_minute_start = None
+
+
+def collect(client, data, include_assets=True, publish_bars=False):
     from alpaca.data.enums import DataFeed
     from alpaca.data.requests import StockBarsRequest
     from alpaca.data.timeframe import TimeFrame
@@ -188,21 +193,54 @@ def collect(client, data, include_assets=True):
     opened, closed = session_time(sessions[0].open), session_time(sessions[0].close)
     if not opened <= now < closed:
         return result | dict(reason="正常交易时段之外")
+    if not include_assets:
+        from quant_lab.dashboard.data import read_json
+
+        cached = read_json(ROOT / "state/scanner.json", {})
+        try:
+            age = (now - datetime.fromisoformat(cached["recorded_at"])).total_seconds()
+            if (
+                tuple(cached.get("universe", [])) == UNIVERSE
+                and -5 <= age <= 30
+                and cached.get("rows")
+            ):
+                return cached
+        except (KeyError, ValueError, TypeError):
+            pass
+    global _minute_cache, _minute_day, _minute_start
+    if _minute_day != str(now.date()):
+        _minute_cache, _minute_day, _minute_start = {}, str(now.date()), None
+    fetch_start = max(opened, _minute_start - timedelta(minutes=3)) if _minute_start else opened
     response = data.get_stock_bars(
         StockBarsRequest(
             symbol_or_symbols=list(UNIVERSE),
-            start=opened,
+            start=fetch_start,
             end=now,
             timeframe=TimeFrame.Minute,
             feed=DataFeed.IEX,
         )
     )
+    _minute_start = now
     assets = {}
     if include_assets:
         global _asset_cache
         try:
             if time.monotonic() - _asset_cache[0] > 600 or not _asset_cache[1]:
-                _asset_cache = (time.monotonic(), {a.symbol: a for a in client.get_all_assets()})
+                try:
+                    asset_rows = client.get_all_assets()
+                except ValueError:
+                    # Older SDK enums can reject unrelated newly listed exchanges (e.g. TXSE).
+                    # The official raw endpoint avoids weakening validation of actual orders.
+                    from types import SimpleNamespace
+
+                    asset_rows = [
+                        SimpleNamespace(**r)
+                        for r in client.get(
+                            "/assets", data={"status": "active", "asset_class": "us_equity"}
+                        )
+                        if r.get("symbol") in UNIVERSE
+                    ]
+                _asset_cache = (time.monotonic(), {a.symbol: a for a in asset_rows})
             assets = _asset_cache[1]
         except Exception:
             pass
@@ -218,7 +256,16 @@ def collect(client, data, include_assets=True):
             )
             for b in response.data.get(symbol, [])
         ]
+        merged = {b["time"]: b for b in _minute_cache.get(symbol, [])}
+        merged.update({b["time"]: b for b in bars})
+        bars = [merged[t] for t in sorted(merged)]
+        _minute_cache[symbol] = bars
+        if publish_bars:
+            from quant_lab.strategies.shared_feed import publish
+
+            publish(ROOT, symbol, bars, now.isoformat())
         row = compare(symbol, bars, now, opened)
+        row["feed"] = "IEX"
         row.update(signal_context(bars, now))
         if include_assets:
             try:
@@ -255,7 +302,7 @@ def main():
         sdk._retry = 0
     while True:
         try:
-            report = collect(client, data)
+            report = collect(client, data, publish_bars=True)
         except Exception as exc:
             report = dict(
                 mode="OBSERVE ONLY",

@@ -216,9 +216,7 @@ def moomoo_state(root):
             for o in source_orders[-30:]
         ][::-1],
         broker="moomoo",
-        capabilities=dict(
-            protective_orders=False, options_enabled=bool(auto.get("options_enabled"))
-        ),
+        capabilities=dict(protective_orders=False, options_enabled=False),
         extensions=dict(
             options_watch=value.get("options_watch", {}), equity_curve=value.get("equity_curve", [])
         ),

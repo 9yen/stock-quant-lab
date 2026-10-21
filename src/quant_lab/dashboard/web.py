@@ -240,7 +240,9 @@ def make_handler(store, token, port):
             self.wfile.write(data)
 
         def valid_host(self):
-            return self.headers.get("Host") in allowed
+            return (
+                len(self.headers.get_all("Host", [])) == 1 and self.headers.get("Host") in allowed
+            )
 
         def do_GET(self):
             if not self.valid_host():
@@ -395,7 +397,16 @@ def make_handler(store, token, port):
                 return self.reply(403, b'{"error":"forbidden"}')
             if self.path not in ("/api/stop", "/api/moomoo/stop"):
                 return self.reply(404, b'{"error":"not found"}')
-            if int(self.headers.get("Content-Length", "0")) > 1024:
+            lengths = self.headers.get_all("Content-Length", [])
+            length = self.headers.get("Content-Length", "0")
+            if (
+                len(lengths) > 1
+                or self.headers.get("Transfer-Encoding") is not None
+                or not length.isascii()
+                or not length.isdecimal()
+            ):
+                return self.reply(400, b'{"error":"invalid request framing"}')
+            if len(length) > 4 or int(length) > 1024:
                 return self.reply(413, b'{"error":"too large"}')
             try:
                 (

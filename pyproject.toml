@@ -21,10 +21,10 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-alpaca = ["alpaca-py>=0.42,<1"]
-research = ["pandas>=2.2,<4", "yfinance>=0.2,<2", "matplotlib>=3.9,<4"]
-moomoo = ["moomoo-api==10.11.7108"]
-tiger = ["tigeropen==3.8.0"]
+alpaca = ["alpaca-py>=0.42,<1", "certifi>=2026.10.19"]
+research = ["pandas>=2.2,<4", "yfinance>=0.2,<2", "matplotlib>=3.9,<4", "certifi>=2026.10.19"]
+moomoo = ["moomoo-api==10.11.7108", "certifi>=2026.10.19"]
+tiger = ["tigeropen==3.8.0", "certifi>=2026.10.19"]
 dev = ["ruff==0.17.1", "build>=1.2,<2", "setuptools>=77", "wheel"]
 
 [project.scripts]

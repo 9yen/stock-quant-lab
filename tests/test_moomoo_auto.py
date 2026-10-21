@@ -254,6 +254,61 @@ class AutoTests(unittest.TestCase):
             ("SIMULATE", "SELL", 10, "MARKET"),
         )
 
+    def test_removed_symbol_still_gets_rollback_exit(self):
+        now = datetime(2026, 10, 19, 10, tzinfo=NY)
+        self.regular(
+            now,
+            [dict(code="US.SPY", qty=10, position_side="LONG", cost_price=100, market_val=980)],
+        )
+        self.e.state["rollback_exit_symbols"] = ["US.SPY"]
+        self.assertNotIn("US.SPY", a.CODES)
+        self.e.state["orders"] = [
+            dict(
+                key="entry",
+                remark="e",
+                symbol="US.SPY",
+                side="BUY",
+                kind="ENTRY",
+                qty=10,
+                filled=10,
+                status="FILLED_ALL",
+            )
+        ]
+        self.assertEqual(self.e.cycle(now)["status"], "EXIT_SUBMITTED")
+        args = self.t.place_order.call_args.kwargs
+        self.assertEqual(
+            (args["trd_env"], args["trd_side"], args["qty"], args["order_type"]),
+            ("SIMULATE", "SELL", 10, "MARKET"),
+        )
+
+    def test_rollback_exit_survives_quote_service_failure(self):
+        now = datetime(2026, 10, 19, 10, tzinfo=NY)
+        self.regular(
+            now,
+            [dict(code="US.SPY", qty=10, position_side="LONG", cost_price=100, market_val=980)],
+        )
+        self.q.get_market_snapshot.side_effect = RuntimeError("quote unavailable")
+        self.e.state["rollback_exit_symbols"] = ["US.SPY"]
+        self.assertNotIn("US.SPY", a.CODES)
+        self.e.state["orders"] = [
+            dict(
+                key="entry",
+                remark="e",
+                symbol="US.SPY",
+                side="BUY",
+                kind="ENTRY",
+                qty=10,
+                filled=10,
+                status="FILLED_ALL",
+            )
+        ]
+        self.assertEqual(self.e.cycle(now)["status"], "EXIT_SUBMITTED")
+        args = self.t.place_order.call_args.kwargs
+        self.assertEqual(
+            (args["trd_env"], args["trd_side"], args["qty"], args["order_type"]),
+            ("SIMULATE", "SELL", 10, "MARKET"),
+        )
+
     def test_external_position_never_sold(self):
         now = datetime(2026, 10, 19, 10, tzinfo=NY)
         self.regular(
@@ -343,7 +398,7 @@ class AutoTests(unittest.TestCase):
         a.write(self.directory / "quant_lab.brokers.moomoo.market.json", dict(rows=[row]))
         return row
 
-    def test_option_entry_buys_one_contract_only(self):
+    def test_stale_option_authorization_cannot_enable_option_entry(self):
         now = datetime(2026, 10, 19, 10, tzinfo=NY)
         row = self.candidate_cycle(now)
         a.write(
@@ -372,10 +427,10 @@ class AutoTests(unittest.TestCase):
             patch("quant_lab.brokers.moomoo.execution.fresh_quote", return_value=True),
             patch("quant_lab.brokers.moomoo.options.select_contract", return_value=option),
         ):
-            self.assertEqual(self.e.cycle(now)["status"], "OPTION_ENTRY_SUBMITTED")
+            self.assertEqual(self.e.cycle(now)["status"], "ENTRY_SUBMITTED")
         args = self.t.place_order.call_args.kwargs
-        self.assertEqual((args["trd_env"], args["trd_side"], args["qty"]), ("SIMULATE", "BUY", 1))
-        self.assertEqual(self.e.state["fills"][0]["multiplier"], 100)
+        self.assertEqual(args["code"], "US.AAPL")
+        self.assertEqual(args["trd_env"], "SIMULATE")
 
     def test_stock_entry_if_options_not_enabled(self):
         now = datetime(2026, 10, 19, 10, tzinfo=NY)
@@ -528,6 +583,22 @@ class AutoTests(unittest.TestCase):
             )
         ]
         self.assertEqual(a.reserve([], orders), 800)
+
+    def test_option_entry_rejected_even_with_valid_long_contract(self):
+        now = datetime(2026, 10, 19, 10, tzinfo=NY)
+        with self.assertRaises(ValueError):
+            self.e.submit(
+                "OPT",
+                1,
+                "BUY",
+                "ENTRY",
+                5,
+                "bar",
+                "test",
+                now,
+                dict(instrument="OPTION", multiplier=100),
+            )
+        self.t.place_order.assert_not_called()
 
     def test_option_entry_rejects_naked_sale_or_multiple_contracts(self):
         now = datetime(2026, 10, 19, 10, tzinfo=NY)
